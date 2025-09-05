@@ -10,6 +10,7 @@ import {
   Sparkles,
   TestTube,
   Settings,
+  Clock,
 } from "lucide-react";
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
   { name: 'Facebook', href: '/facebook', icon: Facebook },
   { name: 'Contacts', href: '/contacts', icon: Users },
   { name: 'Campaigns', href: '/campaigns', icon: Sparkles },
+  { name: 'Follow-ups', href: '/followups', icon: Clock },
   { name: 'A/B Tests', href: '/ab-tests', icon: TestTube },
 ];
 
