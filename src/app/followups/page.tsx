@@ -1,298 +1,666 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
-  Clock, Play, Pause, Edit, Trash2, Plus, 
-  Users, MessageSquare, BarChart3, Calendar,
-  ChevronRight, CheckCircle2, AlertCircle
+  Clock, Play, Pause, Edit, Trash2, Plus, Users, 
+  BarChart3, ChevronRight, TrendingUp, TrendingDown, Filter, 
+  Search, Download, Copy, Activity, Target, Zap, Award, 
+  MoreVertical, ArrowUpRight, ArrowDownRight, RefreshCw, 
+  PauseCircle, PlayCircle
 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
-interface FollowUp {
+// Enhanced interfaces for comprehensive follow-up management
+interface FollowUpSequence {
   id: string;
   name: string;
   description: string;
-  trigger: 'time' | 'action' | 'condition';
-  delay: string;
+  trigger: 'interest_detected' | 'no_response' | 'campaign_clicked' | 'tag_added';
   status: 'active' | 'paused' | 'draft';
-  contacts: number;
-  sent: number;
-  opened: number;
-  clicked: number;
-  lastRun: string;
-  template: string;
+  steps: number;
+  totalTriggered: number;
+  inProgress: number;
+  completed: number;
+  conversionRate: number;
+  performance: 'high' | 'medium' | 'low';
+  lastModified: string;
+  createdBy: string;
+  channels: ('instagram' | 'facebook')[];
 }
 
-const mockFollowUps: FollowUp[] = [
+interface CurrentExecution {
+  id: string;
+  contactId: string;
+  contactName: string;
+  contactHandle: string;
+  contactAvatar: string;
+  source: 'instagram' | 'facebook';
+  sequenceId: string;
+  sequenceName: string;
+  currentStep: number;
+  totalSteps: number;
+  nextActionTime: string;
+  engagementScore: number;
+  progress: number;
+  status: 'active' | 'paused' | 'waiting';
+}
+
+interface PerformanceData {
+  date: string;
+  triggered: number;
+  completed: number;
+  instagram: number;
+  facebook: number;
+}
+
+// Mock data for realistic fitness/supplement industry scenarios
+const mockSequences: FollowUpSequence[] = [
   {
     id: '1',
-    name: 'Initial DM Response',
-    description: 'Auto-reply + qualify with 1 question → send website link (with UTM)',
-    trigger: 'action',
-    delay: 'Immediate',
+    name: 'New Interest Nurture',
+    description: 'Welcome → Success stories → Limited offer for newly interested prospects',
+    trigger: 'interest_detected',
     status: 'active',
-    contacts: 156,
-    sent: 142,
-    opened: 128,
-    clicked: 89,
-    lastRun: '2 hours ago',
-    template: 'Hey {{first_name}}! Thanks for the comment on our {{post_topic}} post! Are you currently using any supplements for {{interest}}? Here\'s our top recommendation: {{link}}'
+    steps: 3,
+    totalTriggered: 284,
+    inProgress: 67,
+    completed: 193,
+    conversionRate: 19.2,
+    performance: 'high',
+    lastModified: '2 hours ago',
+    createdBy: 'Sarah M.',
+    channels: ['instagram', 'facebook']
   },
   {
     id: '2',
-    name: 'Follow-up #1 - Soft Nudge',
-    description: '24h later if no click → soft nudge with social proof',
-    trigger: 'time',
-    delay: '24 hours',
+    name: 'Campaign Non-Responders',
+    description: 'Different angle approach → Final value add for non-responsive contacts',
+    trigger: 'no_response',
     status: 'active',
-    contacts: 67,
-    sent: 52,
-    opened: 41,
-    clicked: 23,
-    lastRun: '6 hours ago',
-    template: 'Hey {{first_name}}! Still thinking it over? Here\'s what Sarah from NYC said: "This changed my whole routine!" {{link}}'
+    steps: 2,
+    totalTriggered: 156,
+    inProgress: 43,
+    completed: 89,
+    conversionRate: 12.8,
+    performance: 'medium',
+    lastModified: '1 day ago',
+    createdBy: 'Mike R.',
+    channels: ['instagram']
   },
   {
     id: '3',
-    name: 'Re-engagement Offer',
-    description: '7 days later if still interested → different offer',
-    trigger: 'condition',
-    delay: '7 days',
+    name: 'High-Value Re-engagement',
+    description: 'Check-in → Educational content → Case study → Special offer',
+    trigger: 'tag_added',
     status: 'paused',
-    contacts: 34,
-    sent: 28,
-    opened: 22,
-    clicked: 12,
-    lastRun: '1 day ago',
-    template: 'Hey {{first_name}}! Since you\'re interested in {{interest}}, we have a special 20% off deal just for you: {{discount_link}}'
+    steps: 4,
+    totalTriggered: 78,
+    inProgress: 12,
+    completed: 45,
+    conversionRate: 15.4,
+    performance: 'medium',
+    lastModified: '3 days ago',
+    createdBy: 'Lisa K.',
+    channels: ['facebook']
   },
   {
     id: '4',
-    name: 'Long-term Nurture',
-    description: 'Monthly value-add content for engaged leads',
-    trigger: 'time',
-    delay: '30 days',
+    name: 'Post-Click Nurture',
+    description: 'Thanks + FAQ → Social proof → Urgency offer for link clickers',
+    trigger: 'campaign_clicked',
     status: 'draft',
-    contacts: 0,
-    sent: 0,
-    opened: 0,
-    clicked: 0,
-    lastRun: 'Never',
-    template: 'Hey {{first_name}}! Here\'s this month\'s {{interest}} tip from our experts...'
+    steps: 3,
+    totalTriggered: 0,
+    inProgress: 0,
+    completed: 0,
+    conversionRate: 0,
+    performance: 'low',
+    lastModified: '5 days ago',
+    createdBy: 'Tom H.',
+    channels: ['instagram', 'facebook']
   }
 ];
 
+const mockExecutions: CurrentExecution[] = [
+  {
+    id: '1',
+    contactId: 'c1',
+    contactName: 'Jessica Chen',
+    contactHandle: '@jessica_fitness',
+    contactAvatar: '/api/placeholder/32/32',
+    source: 'instagram',
+    sequenceId: '1',
+    sequenceName: 'New Interest Nurture',
+    currentStep: 2,
+    totalSteps: 3,
+    nextActionTime: 'in 4 hours',
+    engagementScore: 85,
+    progress: 67,
+    status: 'active'
+  },
+  {
+    id: '2',
+    contactId: 'c2',
+    contactName: 'Marcus Johnson',
+    contactHandle: '@marcus_gains',
+    contactAvatar: '/api/placeholder/32/32',
+    source: 'facebook',
+    sequenceId: '2',
+    sequenceName: 'Campaign Non-Responders',
+    currentStep: 1,
+    totalSteps: 2,
+    nextActionTime: 'in 1 day',
+    engagementScore: 62,
+    progress: 50,
+    status: 'active'
+  },
+  {
+    id: '3',
+    contactId: 'c3',
+    contactName: 'Sophie Williams',
+    contactHandle: '@sophie_strong',
+    contactAvatar: '/api/placeholder/32/32',
+    source: 'instagram',
+    sequenceId: '1',
+    sequenceName: 'New Interest Nurture',
+    currentStep: 1,
+    totalSteps: 3,
+    nextActionTime: 'in 2 hours',
+    engagementScore: 94,
+    progress: 33,
+    status: 'active'
+  },
+  {
+    id: '4',
+    contactId: 'c4',
+    contactName: 'David Rodriguez',
+    contactHandle: '@david_bulk',
+    contactAvatar: '/api/placeholder/32/32',
+    source: 'facebook',
+    sequenceId: '3',
+    sequenceName: 'High-Value Re-engagement',
+    currentStep: 3,
+    totalSteps: 4,
+    nextActionTime: 'Paused',
+    engagementScore: 58,
+    progress: 75,
+    status: 'paused'
+  }
+];
+
+const performanceData: PerformanceData[] = [
+  { date: 'Jan 1', triggered: 12, completed: 8, instagram: 7, facebook: 5 },
+  { date: 'Jan 2', triggered: 15, completed: 11, instagram: 9, facebook: 6 },
+  { date: 'Jan 3', triggered: 18, completed: 13, instagram: 11, facebook: 7 },
+  { date: 'Jan 4', triggered: 22, completed: 16, instagram: 13, facebook: 9 },
+  { date: 'Jan 5', triggered: 19, completed: 14, instagram: 10, facebook: 9 },
+  { date: 'Jan 6', triggered: 25, completed: 19, instagram: 15, facebook: 10 },
+  { date: 'Jan 7', triggered: 28, completed: 21, instagram: 17, facebook: 11 }
+];
+
+const channelData = [
+  { name: 'Instagram', value: 68, color: '#E1306C' },
+  { name: 'Facebook', value: 32, color: '#1877F2' }
+];
+
 const FollowUpsPage = () => {
-  const [followUps, setFollowUps] = useState<FollowUp[]>(mockFollowUps);
-  const [selectedFollowUp, setSelectedFollowUp] = useState<string | null>(null);
+  const [sequences, setSequences] = useState<FollowUpSequence[]>(mockSequences);
+  const [executions] = useState<CurrentExecution[]>(mockExecutions);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [performanceFilter, setPerformanceFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Calculate overview statistics
+  const overviewStats = useMemo(() => {
+    const activeSequences = sequences.filter(s => s.status === 'active').length;
+    const totalInProgress = sequences.reduce((sum, s) => sum + s.inProgress, 0);
+    const totalCompleted = sequences.reduce((sum, s) => sum + s.completed, 0);
+    const totalTriggered = sequences.reduce((sum, s) => sum + s.totalTriggered, 0);
+    const averageCompletion = totalTriggered > 0 ? (totalCompleted / totalTriggered * 100) : 0;
+    const bestSequence = sequences.reduce((best, current) => 
+      current.conversionRate > best.conversionRate ? current : best, sequences[0]);
+
+    return {
+      activeSequences,
+      contactsInFollowups: totalInProgress,
+      averageCompletion: averageCompletion.toFixed(1),
+      bestPerforming: bestSequence?.name || 'N/A',
+      bestPerformingRate: bestSequence?.conversionRate.toFixed(1) || '0'
+    };
+  }, [sequences]);
+
+  // Filter sequences based on search and filters
+  const filteredSequences = useMemo(() => {
+    return sequences.filter(seq => {
+      const matchesSearch = seq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          seq.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || seq.status === statusFilter;
+      const matchesPerformance = performanceFilter === 'all' || seq.performance === performanceFilter;
+      
+      return matchesSearch && matchesStatus && matchesPerformance;
+    });
+  }, [sequences, searchTerm, statusFilter, performanceFilter]);
 
   const handleToggleStatus = (id: string) => {
-    setFollowUps(prev => prev.map(f => {
-      if (f.id === id) {
+    setSequences(prev => prev.map(seq => {
+      if (seq.id === id) {
         return {
-          ...f,
-          status: f.status === 'active' ? 'paused' : 'active'
+          ...seq,
+          status: seq.status === 'active' ? 'paused' : 'active'
         };
       }
-      return f;
+      return seq;
     }));
   };
 
-  const handleEdit = (id: string) => {
-    console.log('Edit follow-up:', id);
-    // TODO: Open edit modal
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this follow-up?')) {
-      setFollowUps(prev => prev.filter(f => f.id !== id));
-    }
-  };
-
-  const handleCreateNew = () => {
-    console.log('Create new follow-up');
-    // TODO: Open create modal
+  const handleExecutionAction = (id: string, action: 'pause' | 'resume' | 'skip' | 'remove') => {
+    console.log(`${action} execution:`, id);
+    // Implementation for execution actions
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-50 text-green-700 border-green-200';
-      case 'paused': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-      case 'draft': return 'bg-slate-50 text-slate-700 border-slate-200';
-      default: return 'bg-slate-50 text-slate-700 border-slate-200';
+      case 'active': return 'bg-green-900/20 text-green-400 border-green-800';
+      case 'paused': return 'bg-yellow-900/20 text-yellow-400 border-yellow-800';
+      case 'draft': return 'bg-gray-700 text-gray-400 border-gray-600';
+      default: return 'bg-gray-700 text-gray-400 border-gray-600';
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'active': return <CheckCircle2 size={14} className="text-green-600" />;
-      case 'paused': return <Pause size={14} className="text-yellow-600" />;
-      case 'draft': return <AlertCircle size={14} className="text-slate-600" />;
-      default: return <AlertCircle size={14} className="text-slate-600" />;
+  const getPerformanceColor = (performance: string) => {
+    switch (performance) {
+      case 'high': return 'text-green-400';
+      case 'medium': return 'text-yellow-400';
+      case 'low': return 'text-red-400';
+      default: return 'text-gray-400';
+    }
+  };
+
+  const getPerformanceIcon = (performance: string) => {
+    switch (performance) {
+      case 'high': return <TrendingUp size={14} />;
+      case 'medium': return <TrendingUp size={14} />;
+      case 'low': return <TrendingDown size={14} />;
+      default: return <TrendingUp size={14} />;
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Follow-up Sequences</h1>
-          <p className="text-slate-600">Automated follow-up campaigns for lead nurturing</p>
-        </div>
-        <button
-          onClick={handleCreateNew}
-          className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={18} />
-          New Follow-up
-        </button>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg">
-              <Clock className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <div className="font-semibold text-slate-900">4</div>
-              <div className="text-sm text-slate-600">Active Sequences</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-50 rounded-lg">
-              <Users className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <div className="font-semibold text-slate-900">257</div>
-              <div className="text-sm text-slate-600">Contacts in Queue</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-50 rounded-lg">
-              <MessageSquare className="h-5 w-5 text-yellow-600" />
-            </div>
-            <div>
-              <div className="font-semibold text-slate-900">222</div>
-              <div className="text-sm text-slate-600">Messages Sent</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-50 rounded-lg">
-              <BarChart3 className="h-5 w-5 text-purple-600" />
-            </div>
-            <div>
-              <div className="font-semibold text-slate-900">124</div>
-              <div className="text-sm text-slate-600">Link Clicks</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Follow-up List */}
-      <div className="bg-white rounded-xl border border-slate-200">
-        <div className="p-6 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">Follow-up Sequences</h2>
-        </div>
+    <div className="min-h-screen bg-gray-900 text-white p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
         
-        <div className="divide-y divide-slate-200">
-          {followUps.map((followUp) => (
-            <div key={followUp.id} className="p-6 hover:bg-slate-50 transition-colors">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-slate-900">{followUp.name}</h3>
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-medium ${getStatusColor(followUp.status)}`}>
-                      {getStatusIcon(followUp.status)}
-                      {followUp.status.toUpperCase()}
-                    </span>
-                    <span className="text-sm text-slate-500">
-                      Delay: {followUp.delay}
-                    </span>
-                  </div>
-                  
-                  <p className="text-slate-600 mb-3">{followUp.description}</p>
-                  
-                  <div className="flex items-center gap-6 text-sm text-slate-500">
-                    <div className="flex items-center gap-1">
-                      <Users size={14} />
-                      <span>{followUp.contacts} contacts</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <MessageSquare size={14} />
-                      <span>{followUp.sent} sent</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <BarChart3 size={14} />
-                      <span>{followUp.clicked} clicked</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar size={14} />
-                      <span>Last: {followUp.lastRun}</span>
-                    </div>
-                  </div>
-                  
-                  {selectedFollowUp === followUp.id && (
-                    <div className="mt-4 p-4 bg-slate-50 rounded-lg">
-                      <h4 className="font-medium text-slate-900 mb-2">Template Preview:</h4>
-                      <p className="text-sm text-slate-600 italic">{followUp.template}</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex items-center gap-2 ml-4">
-                  <button
-                    onClick={() => setSelectedFollowUp(selectedFollowUp === followUp.id ? null : followUp.id)}
-                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                    title="View template"
-                  >
-                    <ChevronRight 
-                      size={16} 
-                      className={`transition-transform ${selectedFollowUp === followUp.id ? 'rotate-90' : ''}`} 
-                    />
-                  </button>
-                  
-                  <button
-                    onClick={() => handleToggleStatus(followUp.id)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      followUp.status === 'active' 
-                        ? 'text-yellow-600 hover:bg-yellow-50' 
-                        : 'text-green-600 hover:bg-green-50'
-                    }`}
-                    title={followUp.status === 'active' ? 'Pause' : 'Activate'}
-                  >
-                    {followUp.status === 'active' ? <Pause size={16} /> : <Play size={16} />}
-                  </button>
-                  
-                  <button
-                    onClick={() => handleEdit(followUp.id)}
-                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="Edit"
-                  >
-                    <Edit size={16} />
-                  </button>
-                  
-                  <button
-                    onClick={() => handleDelete(followUp.id)}
-                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+        {/* Header Section */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Follow-up Sequences</h1>
+            <p className="text-gray-400 mt-1">Automated messaging sequences and nurturing campaigns</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 text-gray-300 rounded-xl hover:bg-gray-700 transition-colors">
+              <Download size={16} />
+              Export Data
+            </button>
+            <button className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-xl hover:bg-blue-700 transition-colors">
+              <Plus size={18} />
+              Create New Sequence
+            </button>
+          </div>
+        </div>
+
+        {/* Overview Stats Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Total Active Sequences</p>
+                <p className="text-2xl font-bold text-white mt-1">{overviewStats.activeSequences}</p>
+              </div>
+              <div className="p-3 bg-blue-900/30 rounded-lg">
+                <Activity className="h-6 w-6 text-blue-400" />
+              </div>
+            </div>
+            <div className="flex items-center gap-1 mt-3 text-green-400 text-sm">
+              <ArrowUpRight size={14} />
+              <span>+12% from last month</span>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Contacts in Follow-ups</p>
+                <p className="text-2xl font-bold text-white mt-1">{overviewStats.contactsInFollowups}</p>
+              </div>
+              <div className="p-3 bg-green-900/30 rounded-lg">
+                <Users className="h-6 w-6 text-green-400" />
+              </div>
+            </div>
+            <div className="flex items-center gap-1 mt-3 text-green-400 text-sm">
+              <ArrowUpRight size={14} />
+              <span>+8% this week</span>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Average Completion Rate</p>
+                <p className="text-2xl font-bold text-white mt-1">{overviewStats.averageCompletion}%</p>
+              </div>
+              <div className="p-3 bg-purple-900/30 rounded-lg">
+                <Target className="h-6 w-6 text-purple-400" />
+              </div>
+            </div>
+            <div className="flex items-center gap-1 mt-3 text-red-400 text-sm">
+              <ArrowDownRight size={14} />
+              <span>-2% vs target</span>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-400 text-sm">Best Performing Sequence</p>
+                <p className="text-xl font-bold text-white mt-1">{overviewStats.bestPerforming}</p>
+                <p className="text-sm text-green-400">{overviewStats.bestPerformingRate}% conversion</p>
+              </div>
+              <div className="p-3 bg-yellow-900/30 rounded-lg">
+                <Award className="h-6 w-6 text-yellow-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Performance Timeline Chart */}
+          <div className="lg:col-span-2 bg-gray-800 rounded-xl border border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-white">Performance Timeline</h3>
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <span className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                  Triggered
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  Completed
+                </span>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={performanceData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="date" stroke="#9CA3AF" />
+                <YAxis stroke="#9CA3AF" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#1F2937', 
+                    border: '1px solid #374151',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Line type="monotone" dataKey="triggered" stroke="#3B82F6" strokeWidth={2} />
+                <Line type="monotone" dataKey="completed" stroke="#10B981" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Channel Performance Chart */}
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-white mb-6">Channel Performance</h3>
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie
+                  data={channelData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={70}
+                  fill="#8884d8"
+                  dataKey="value"
+                  label={({name, value}) => `${name} ${value}%`}
+                >
+                  {channelData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#1F2937', 
+                    border: '1px solid #374151',
+                    borderRadius: '8px'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Sequence Management Section */}
+        <div className="bg-gray-800 rounded-xl border border-gray-700">
+          {/* Table Header with Filters */}
+          <div className="p-6 border-b border-gray-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-white">Sequence Management</h2>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search sequences..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
             </div>
-          ))}
+            
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Filter size={16} className="text-gray-400" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="draft">Draft</option>
+                </select>
+              </div>
+              
+              <select
+                value={performanceFilter}
+                onChange={(e) => setPerformanceFilter(e.target.value)}
+                className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Performance</option>
+                <option value="high">High Performing</option>
+                <option value="medium">Medium Performing</option>
+                <option value="low">Low Performing</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Sequences Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="text-left p-4 text-gray-400 font-medium">Sequence</th>
+                  <th className="text-left p-4 text-gray-400 font-medium">Status</th>
+                  <th className="text-left p-4 text-gray-400 font-medium">Performance</th>
+                  <th className="text-left p-4 text-gray-400 font-medium">Stats</th>
+                  <th className="text-left p-4 text-gray-400 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSequences.map((sequence) => (
+                  <tr key={sequence.id} className="border-b border-gray-700 hover:bg-gray-750">
+                    <td className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white mb-1">{sequence.name}</h3>
+                          <p className="text-sm text-gray-400 mb-2">{sequence.description}</p>
+                          <div className="flex items-center gap-4 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Zap size={12} />
+                              {sequence.trigger.replace('_', ' ')}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock size={12} />
+                              {sequence.steps} steps
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {sequence.channels.includes('instagram') && <span className="text-pink-400 text-xs">IG</span>}
+                              {sequence.channels.includes('facebook') && <span className="text-blue-400 text-xs">FB</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-medium ${getStatusColor(sequence.status)}`}>
+                        {sequence.status === 'active' && <PlayCircle size={12} />}
+                        {sequence.status === 'paused' && <PauseCircle size={12} />}
+                        {sequence.status === 'draft' && <Edit size={12} />}
+                        {sequence.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <span className={`flex items-center gap-1 ${getPerformanceColor(sequence.performance)}`}>
+                          {getPerformanceIcon(sequence.performance)}
+                          {sequence.conversionRate}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="text-sm text-gray-400 space-y-1">
+                        <div>Triggered: <span className="text-white">{sequence.totalTriggered}</span></div>
+                        <div>In Progress: <span className="text-yellow-400">{sequence.inProgress}</span></div>
+                        <div>Completed: <span className="text-green-400">{sequence.completed}</span></div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleStatus(sequence.id)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            sequence.status === 'active' 
+                              ? 'text-yellow-400 hover:bg-yellow-900/20' 
+                              : 'text-green-400 hover:bg-green-900/20'
+                          }`}
+                          title={sequence.status === 'active' ? 'Pause' : 'Activate'}
+                        >
+                          {sequence.status === 'active' ? <Pause size={16} /> : <Play size={16} />}
+                        </button>
+                        
+                        <button className="p-2 text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit">
+                          <Edit size={16} />
+                        </button>
+                        
+                        <button className="p-2 text-gray-400 hover:bg-gray-700 rounded-lg transition-colors" title="Duplicate">
+                          <Copy size={16} />
+                        </button>
+                        
+                        <button className="p-2 text-purple-400 hover:bg-purple-900/20 rounded-lg transition-colors" title="Analytics">
+                          <BarChart3 size={16} />
+                        </button>
+                        
+                        <button className="p-2 text-red-400 hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        {/* Current Executions Section */}
+        <div className="bg-gray-800 rounded-xl border border-gray-700">
+          <div className="p-6 border-b border-gray-700">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white">Current Executions</h2>
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <RefreshCw size={16} />
+                <span>Live Updates</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="divide-y divide-gray-700">
+            {executions.map((execution) => (
+              <div key={execution.id} className="p-6 hover:bg-gray-750 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <img 
+                      src={execution.contactAvatar} 
+                      alt={execution.contactName}
+                      className="w-10 h-10 rounded-full"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-1">
+                        <h3 className="font-medium text-white">{execution.contactName}</h3>
+                        <span className="text-sm text-gray-400">{execution.contactHandle}</span>
+                        <div className="flex items-center gap-1">
+                          {execution.source === 'instagram' ? (
+                            <span className="text-pink-400 text-xs font-medium">IG</span>
+                          ) : (
+                            <span className="text-blue-400 text-xs font-medium">FB</span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-400 mb-2">{execution.sequenceName}</p>
+                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <span>Step {execution.currentStep} of {execution.totalSteps}</span>
+                        <span>Next: {execution.nextActionTime}</span>
+                        <span>Engagement: {execution.engagementScore}%</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="w-24 bg-gray-700 rounded-full h-2 mb-1">
+                        <div 
+                          className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${execution.progress}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs text-gray-400">{execution.progress}% complete</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => handleExecutionAction(execution.id, execution.status === 'active' ? 'pause' : 'resume')}
+                        className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                        title={execution.status === 'active' ? 'Pause' : 'Resume'}
+                      >
+                        {execution.status === 'active' ? <Pause size={14} /> : <Play size={14} />}
+                      </button>
+                      <button 
+                        onClick={() => handleExecutionAction(execution.id, 'skip')}
+                        className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-900/20 rounded-lg transition-colors"
+                        title="Skip Step"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                      <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
+                        <MoreVertical size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
     </div>
   );
