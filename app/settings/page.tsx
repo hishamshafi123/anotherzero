@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 interface SettingsPageProps {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ searchParams }) => {

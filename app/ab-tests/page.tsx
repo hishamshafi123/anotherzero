@@ -4,7 +4,7 @@ import { Plus, TrendingUp, Award, BarChart3, Target, Zap, Crown, Calendar, Eye }
 import { MOCK_AB_TESTS, MOCK_CAMPAIGNS, type ABTest, type ABTestVariant } from '@/lib/mock-data';
 
 interface ABTestsPageProps {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 const ABTestsPage: React.FC<ABTestsPageProps> = ({ searchParams }) => {

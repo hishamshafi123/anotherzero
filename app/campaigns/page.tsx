@@ -4,7 +4,7 @@ import { Plus, Play, Pause, Copy, Archive, BarChart3, Users, MousePointer, Trend
 import { MOCK_CAMPAIGNS, getCampaignStats, type Campaign } from '@/lib/mock-data';
 
 interface CampaignsPageProps {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 const CampaignsPage: React.FC<CampaignsPageProps> = ({ searchParams }) => {

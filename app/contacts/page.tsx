@@ -4,7 +4,7 @@ import { Search, Filter, Users, TrendingUp, Activity, Download, UserPlus, MoreVe
 import { MOCK_CONTACTS, getContactStats, type Contact } from '@/lib/mock-data';
 
 interface ContactsPageProps {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 interface ContactFilters {
