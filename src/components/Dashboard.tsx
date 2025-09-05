@@ -47,7 +47,14 @@ import TemplateCard from "./TemplateCard";
 
 // We'll implement these simply without external dependencies
 const useModal = () => ({ activeModal: null, modalData: null, openModal: () => {}, closeModal: () => {} });
-const useToast = () => ({ toasts: [], toast: { success: () => {}, info: () => {} }, removeToast: () => {} });
+const useToast = () => ({ 
+  toasts: [], 
+  toast: { 
+    success: (title: string, message?: string) => console.log('Toast:', title, message), 
+    info: (title: string, message?: string) => console.log('Toast:', title, message) 
+  }, 
+  removeToast: () => {} 
+});
 
 const Dashboard = () => {
   const router = useRouter();
