@@ -46,7 +46,12 @@ import StepNumber from "./StepNumber";
 import TemplateCard from "./TemplateCard";
 
 // We'll implement these simply without external dependencies
-const useModal = () => ({ activeModal: null, modalData: null, openModal: () => {}, closeModal: () => {} });
+const useModal = () => ({ 
+  activeModal: null, 
+  modalData: null, 
+  openModal: (type: string, data?: any) => console.log('Modal:', type, data), 
+  closeModal: () => {} 
+});
 const useToast = () => ({ 
   toasts: [], 
   toast: { 
@@ -329,12 +334,12 @@ const Dashboard = () => {
                       <td className="py-3 pr-3 font-medium text-slate-900">{c.name}</td>
                       <td className="py-3 pr-3">{c.channel}</td>
                       <td className="py-3 pr-3">
-                        <Badge tone={c.status === "Running" ? "green" : "yellow"}>{c.status}</Badge>
+                        <Badge tone={c.status === "running" ? "green" : "yellow"}>{c.status}</Badge>
                       </td>
                       <td className="py-3 pr-3">{c.sent.toLocaleString()}</td>
                       <td className="py-3 pr-3">{c.clicks.toLocaleString()} <span className="text-slate-400">({Math.round((c.clicks / c.sent) * 100)}%)</span></td>
                       <td className="py-3 pr-3">{Math.round(c.ctr * 100)}%</td>
-                      <td className="py-3 pr-3">{c.ab}</td>
+                      <td className="py-3 pr-3">-</td>
                     </tr>
                   ))}
                 </tbody>

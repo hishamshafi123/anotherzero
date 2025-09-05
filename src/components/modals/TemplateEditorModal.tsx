@@ -4,7 +4,23 @@ import {
   X, Save, Eye, FileText, Settings, Copy, Trash2, Plus,
   ChevronDown
 } from 'lucide-react';
-import { MOCK_TEMPLATES, type Template } from '../../../lib/mock-data';
+// import { MOCK_TEMPLATES, type Template } from '../../../lib/mock-data';
+
+// Mock data for templates
+type Template = {
+  id: string;
+  name: string;
+  subject: string;
+  content: string;
+  tags: string[];
+  performance: {
+    sent: number;
+    clicks: number;
+    ctr: number;
+  };
+};
+
+const MOCK_TEMPLATES: Template[] = [];
 
 interface TemplateEditorModalProps {
   isOpen: boolean;
@@ -20,10 +36,10 @@ const TemplateEditorModal: React.FC<TemplateEditorModalProps> = ({ isOpen, onClo
 
   const [templateName, setTemplateName] = useState(template?.name || 'New Template');
   const [templateContent, setTemplateContent] = useState(
-    template?.body_text || 'Hey {{first_name}}! Check out our latest fitness supplement designed for {{interest}} enthusiasts 💪'
+    template?.content || 'Hey {{first_name}}! Check out our latest fitness supplement designed for {{interest}} enthusiasts 💪'
   );
-  const [templateChannel, setTemplateChannel] = useState(template?.channel || 'instagram');
-  const [templateCategory, setTemplateCategory] = useState(template?.category || 'intro');
+  const [templateChannel, setTemplateChannel] = useState('instagram');
+  const [templateCategory, setTemplateCategory] = useState('intro');
   const [activeTab, setActiveTab] = useState('editor');
 
   const handleSave = () => {
