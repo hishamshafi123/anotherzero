@@ -202,7 +202,11 @@ const channelData = [
   { name: 'Facebook', value: 32, color: '#1877F2' }
 ];
 
-const FollowUpsPage = () => {
+interface FollowUpsPageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+const FollowUpsPage: React.FC<FollowUpsPageProps> = () => {
   const [sequences, setSequences] = useState<FollowUpSequence[]>(mockSequences);
   const [executions] = useState<CurrentExecution[]>(mockExecutions);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -285,7 +289,7 @@ const FollowUpsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
+    <div className="p-6">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header Section */}
