@@ -17,7 +17,7 @@ const ContactList: React.FC<ContactListProps> = ({ contacts, onContactClick }) =
       case 'interested':
         return 'green';
       case 'not_interested':
-        return 'red';
+        return 'yellow';
       default:
         return 'slate';
     }

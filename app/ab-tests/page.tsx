@@ -7,8 +7,8 @@ interface ABTestsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-const ABTestsPage: React.FC<ABTestsPageProps> = ({ searchParams }) => {
-  const [abTests, setAbTests] = useState<ABTest[]>(MOCK_AB_TESTS);
+const ABTestsPage: React.FC<ABTestsPageProps> = () => {
+  const [abTests] = useState<ABTest[]>(MOCK_AB_TESTS);
   const [statusFilter, setStatusFilter] = useState('all');
 
   const testStats = useMemo(() => ({
@@ -52,10 +52,6 @@ const ABTestsPage: React.FC<ABTestsPageProps> = ({ searchParams }) => {
     return ((variantA.ctr - variantB.ctr) / variantB.ctr) * 100;
   };
 
-  const getWinnerVariant = (test: ABTest): ABTestVariant | null => {
-    if (!test.winner) return null;
-    return test.variants.find(v => v.id === test.winner) || null;
-  };
 
   const promoteWinner = (testId: string) => {
     console.log(`Promoting winner for test ${testId}`);
@@ -166,7 +162,6 @@ const ABTestsPage: React.FC<ABTestsPageProps> = ({ searchParams }) => {
       {/* A/B Tests List */}
       <div className="space-y-6">
         {filteredTests.map((test) => {
-          const winnerVariant = getWinnerVariant(test);
           const [variantA, variantB] = test.variants;
           const lift = variantA && variantB ? calculateLift(variantA, variantB) : 0;
 

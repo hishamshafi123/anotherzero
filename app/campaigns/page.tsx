@@ -1,16 +1,15 @@
 'use client';
 import React, { useState, useMemo } from 'react';
-import { Plus, Play, Pause, Copy, Archive, BarChart3, Users, MousePointer, TrendingUp, Calendar, Filter } from 'lucide-react';
+import { Plus, Play, Pause, Copy, Archive, BarChart3, MousePointer, TrendingUp, Calendar, Filter } from 'lucide-react';
 import { MOCK_CAMPAIGNS, getCampaignStats, type Campaign } from '@/lib/mock-data';
 
 interface CampaignsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-const CampaignsPage: React.FC<CampaignsPageProps> = ({ searchParams }) => {
+const CampaignsPage: React.FC<CampaignsPageProps> = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>(MOCK_CAMPAIGNS);
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
 
   const campaignStats = getCampaignStats();
 
