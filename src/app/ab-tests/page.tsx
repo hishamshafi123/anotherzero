@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { TestTube, Trophy, TrendingUp, Users, MousePointer, Plus, BarChart, Eye, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-import { MOCK_AB_TESTS } from '@/lib/mock-data';
+import { MOCK_AB_TESTS } from '@/lib/supabase-queries';
 
 const STATUS_COLORS = {
   running: 'bg-green-100 text-green-800 border-green-200',

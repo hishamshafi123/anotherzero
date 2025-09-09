@@ -1,23 +1,40 @@
 'use client';
 import React, { useState, useMemo } from 'react';
-import { Plus, TrendingUp, Award, BarChart3, Target, Zap, Crown, Calendar, Eye } from 'lucide-react';
+import { Plus, TrendingUp, Award, BarChart3, Target, Zap, Crown, Calendar, Eye, CheckCircle, AlertTriangle, XCircle, Clock, PlayCircle, Pause, Copy } from 'lucide-react';
 import { MOCK_AB_TESTS, MOCK_CAMPAIGNS, type ABTest, type ABTestVariant } from '@/lib/mock-data';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { useModal } from '@/hooks/use-modal';
+import { useToast } from '@/hooks/use-toast';
+import { ToastContainer } from '@/components/ui/Toast';
+import ABTestDetailModal from '@/components/ABTestDetailModal';
+import CreateABTestModal from '@/components/modals/CreateABTestModal';
 
 interface ABTestsPageProps {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-const ABTestsPage: React.FC<ABTestsPageProps> = () => {
-  const [abTests] = useState<ABTest[]>(MOCK_AB_TESTS);
+const ABTestsPage: React.FC<ABTestsPageProps> = ({ searchParams }) => {
+  const [abTests, setAbTests] = useState<ABTest[]>(MOCK_AB_TESTS);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [duplicateTest, setDuplicateTest] = useState<ABTest | null>(null);
+  const { activeModal, modalData, openModal, closeModal } = useModal();
+  const { toasts, toast, removeToast } = useToast();
 
-  const testStats = useMemo(() => ({
-    totalTests: abTests.length,
-    completedTests: abTests.filter(t => t.status === 'completed').length,
-    runningTests: abTests.filter(t => t.status === 'running').length,
-    avgConfidence: Math.round(abTests.reduce((sum, test) => sum + test.confidence_level, 0) / abTests.length),
-    avgLift: '+15.2%'
-  }), [abTests]);
+  const testStats = useMemo(() => {
+    const totalTests = abTests.length;
+    const completedTests = abTests.filter(t => t.status === 'completed').length;
+    const runningTests = abTests.filter(t => t.status === 'running').length;
+    const avgConfidence = totalTests > 0 ? Math.round(abTests.reduce((sum, test) => sum + test.confidence_level, 0) / totalTests) : 0;
+    
+    return {
+      totalTests,
+      completedTests,
+      runningTests,
+      avgConfidence,
+      avgLift: '+15.2%'
+    };
+  }, [abTests]);
 
   const filteredTests = useMemo(() => {
     if (statusFilter === 'all') return abTests;
@@ -54,13 +71,116 @@ const ABTestsPage: React.FC<ABTestsPageProps> = () => {
 
 
   const promoteWinner = (testId: string) => {
-    console.log(`Promoting winner for test ${testId}`);
-    // TODO: Implement winner promotion logic
+    setAbTests(prev => prev.map(test => {
+      if (test.id === testId) {
+        const winner = test.variants.find(v => v.ctr === Math.max(...test.variants.map(variant => variant.ctr)));
+        return { ...test, winner: winner?.id, status: 'completed' as const };
+      }
+      return test;
+    }));
+    toast.success('Winner Promoted!', 'The winning variant has been activated for your campaign.');
+  };
+
+  const pauseTest = (testId: string) => {
+    setAbTests(prev => prev.map(test => 
+      test.id === testId ? { ...test, status: 'paused' as const } : test
+    ));
+    toast.info('Test Paused', 'The A/B test has been paused.');
+  };
+
+  const resumeTest = (testId: string) => {
+    setAbTests(prev => prev.map(test => 
+      test.id === testId ? { ...test, status: 'running' as const } : test
+    ));
+    toast.success('Test Resumed', 'The A/B test is now running again.');
+  };
+
+  const viewTestDetails = (test: ABTest) => {
+    openModal('ab-test-detail', test);
   };
 
   const getCampaignName = (campaignId: string) => {
     const campaign = MOCK_CAMPAIGNS.find(c => c.id === campaignId);
     return campaign?.name || 'Unknown Campaign';
+  };
+
+  const getTestDuration = (startDate: string, endDate?: string) => {
+    const start = new Date(startDate);
+    const end = endDate ? new Date(endDate) : new Date();
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const getStatisticalSignificanceIcon = (confidence: number) => {
+    if (confidence >= 95) return <CheckCircle className="text-green-400" size={16} />;
+    if (confidence >= 85) return <AlertTriangle className="text-yellow-400" size={16} />;
+    return <XCircle className="text-red-400" size={16} />;
+  };
+
+  const getStatisticalSignificanceText = (confidence: number) => {
+    if (confidence >= 95) return 'Statistically Significant';
+    if (confidence >= 85) return 'Moderately Significant';
+    return 'Not Significant';
+  };
+
+  const createComparisonChartData = (variants: ABTestVariant[]) => {
+    return variants.map(variant => ({
+      name: variant.name,
+      ctr: variant.ctr,
+      conversions: variant.conversions,
+      conversionRate: variant.conversion_rate,
+      sent: variant.sent,
+      clicks: variant.clicks
+    }));
+  };
+
+  const handleCreateTest = (testData: any) => {
+    const newTest: ABTest = {
+      id: `test_${Date.now()}`,
+      name: testData.name,
+      description: testData.description,
+      status: testData.sendImmediately ? 'running' : 'paused',
+      start_date: testData.startDate,
+      end_date: testData.endDate,
+      confidence_level: testData.confidenceLevel,
+      winner: null,
+      variants: testData.variants.map((variant: any, index: number) => ({
+        id: variant.id,
+        name: variant.name,
+        message: variant.message,
+        sent: 0,
+        clicks: 0,
+        ctr: 0,
+        conversions: 0,
+        conversion_rate: 0
+      }))
+    };
+
+    setAbTests(prev => [newTest, ...prev]);
+    toast.success(
+      'A/B Test Created!',
+      testData.sendImmediately 
+        ? `${testData.name} is now running and sending messages.`
+        : `${testData.name} has been created and is ready to launch.`
+    );
+    setIsCreateModalOpen(false);
+    setDuplicateTest(null);
+  };
+
+  const handleDuplicateTest = (test: ABTest) => {
+    setDuplicateTest(test);
+    setIsCreateModalOpen(true);
+  };
+
+  const openCreateModal = () => {
+    setDuplicateTest(null);
+    setIsCreateModalOpen(true);
+  };
+
+  const closeCreateModal = () => {
+    setIsCreateModalOpen(false);
+    setDuplicateTest(null);
   };
 
   return (
@@ -72,7 +192,10 @@ const ABTestsPage: React.FC<ABTestsPageProps> = () => {
             <h1 className="text-3xl font-bold text-white mb-2">A/B Tests</h1>
             <p className="text-gray-400">Optimize your campaigns with data-driven insights</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+          <button 
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
             <Plus size={18} />
             New A/B Test
           </button>
@@ -197,7 +320,7 @@ const ABTestsPage: React.FC<ABTestsPageProps> = () => {
                     {test.confidence_level}%
                   </div>
                   <div className="text-xs text-gray-400">Confidence</div>
-                  {test.status === 'completed' && test.winner && (
+                  {test.status === 'completed' && !test.winner && test.confidence_level >= 95 && (
                     <button
                       onClick={() => promoteWinner(test.id)}
                       className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium transition"
@@ -205,7 +328,67 @@ const ABTestsPage: React.FC<ABTestsPageProps> = () => {
                       Promote Winner
                     </button>
                   )}
+                  {test.winner && (
+                    <div className="px-2 py-1 bg-green-600/20 border border-green-600/30 rounded text-xs text-green-400">
+                      Winner Promoted
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* Performance Chart */}
+              {test.variants.length > 1 && (
+                <div className="mb-6 p-4 bg-gray-700 rounded-lg">
+                  <h4 className="text-white font-medium mb-4 flex items-center gap-2">
+                    <BarChart3 size={18} />
+                    Performance Comparison
+                  </h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={createComparisonChartData(test.variants)}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="name" tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+                        <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#1F2937', 
+                            border: '1px solid #374151', 
+                            borderRadius: '8px' 
+                          }} 
+                        />
+                        <Bar dataKey="ctr" fill="#3B82F6" name="CTR (%)" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="conversionRate" fill="#10B981" name="Conversion Rate (%)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Statistical Significance Indicator */}
+              <div className="mb-6 p-4 bg-gray-700 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {getStatisticalSignificanceIcon(test.confidence_level)}
+                    <div>
+                      <h4 className="text-white font-medium">{getStatisticalSignificanceText(test.confidence_level)}</h4>
+                      <p className="text-sm text-gray-400">
+                        {test.confidence_level}% confidence level • {getTestDuration(test.start_date, test.end_date)} days duration
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-white">{lift > 0 ? '+' : ''}{lift.toFixed(1)}%</div>
+                    <div className="text-sm text-gray-400">Lift vs Control</div>
+                  </div>
+                </div>
+                
+                {test.confidence_level < 95 && (
+                  <div className="mt-3 p-3 bg-yellow-600/10 border border-yellow-600/30 rounded-lg">
+                    <p className="text-sm text-yellow-300">
+                      ⚠️ Consider running the test longer to achieve statistical significance (95%+ confidence)
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Variants Comparison */}
@@ -295,17 +478,35 @@ const ABTestsPage: React.FC<ABTestsPageProps> = () => {
                   {test.status === 'paused' && 'Test is paused'}
                 </div>
                 <div className="flex gap-3">
-                  <button className="flex items-center gap-2 px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition text-sm">
+                  <button 
+                    onClick={() => viewTestDetails(test)}
+                    className="flex items-center gap-2 px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition text-sm"
+                  >
                     <Eye size={14} />
                     View Details
                   </button>
+                  <button 
+                    onClick={() => handleDuplicateTest(test)}
+                    className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition text-sm"
+                  >
+                    <Copy size={14} />
+                    Duplicate Test
+                  </button>
                   {test.status === 'running' && (
-                    <button className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition text-sm">
+                    <button 
+                      onClick={() => pauseTest(test.id)}
+                      className="flex items-center gap-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition text-sm"
+                    >
+                      <Pause size={14} />
                       Pause Test
                     </button>
                   )}
                   {test.status === 'paused' && (
-                    <button className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg transition text-sm">
+                    <button 
+                      onClick={() => resumeTest(test.id)}
+                      className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg transition text-sm"
+                    >
+                      <PlayCircle size={14} />
                       Resume Test
                     </button>
                   )}
@@ -344,6 +545,37 @@ const ABTestsPage: React.FC<ABTestsPageProps> = () => {
         </div>
       </div>
 
+      {/* Test History Overview */}
+      <div className="mt-8 bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Clock size={18} />
+          Test History Overview
+        </h3>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={abTests.map(test => ({
+              name: test.name.substring(0, 15) + '...',
+              confidence: test.confidence_level,
+              duration: getTestDuration(test.start_date, test.end_date),
+              status: test.status
+            }))}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="name" tick={{ fill: '#9CA3AF', fontSize: 10 }} />
+              <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#1F2937', 
+                  border: '1px solid #374151', 
+                  borderRadius: '8px' 
+                }} 
+              />
+              <Line type="monotone" dataKey="confidence" stroke="#3B82F6" strokeWidth={2} name="Confidence %" />
+              <Line type="monotone" dataKey="duration" stroke="#10B981" strokeWidth={2} name="Duration (days)" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {/* Empty State */}
       {filteredTests.length === 0 && (
         <div className="text-center py-12">
@@ -355,11 +587,32 @@ const ABTestsPage: React.FC<ABTestsPageProps> = () => {
               : `No ${statusFilter} tests at the moment`
             }
           </p>
-          <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+          <button 
+            onClick={openCreateModal}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
             Create Your First A/B Test
           </button>
         </div>
       )}
+
+      {/* Modals */}
+      <ABTestDetailModal
+        isOpen={activeModal === 'ab-test-detail'}
+        onClose={closeModal}
+        testData={modalData}
+        onPromoteWinner={promoteWinner}
+      />
+      
+      <CreateABTestModal
+        isOpen={isCreateModalOpen}
+        onClose={closeCreateModal}
+        duplicateFromTest={duplicateTest}
+        onCreateTest={handleCreateTest}
+      />
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 };

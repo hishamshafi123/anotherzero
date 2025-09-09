@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useCallback } from 'react';
 
@@ -7,25 +8,26 @@ export interface Toast {
   title: string;
   message?: string;
   duration?: number;
+  onClose: (id: string) => void;
 }
 
 export const useToast = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+    console.log('Toast removed:', id);
+  }, []);
+
+  const addToast = useCallback((toast: Omit<Toast, 'id' | 'onClose'>) => {
     const id = Date.now().toString();
-    const newToast = { ...toast, id };
+    const newToast = { ...toast, id, onClose: removeToast };
     
     setToasts(prev => [...prev, newToast]);
     console.log('Toast added:', newToast);
     
     return id;
-  }, []);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-    console.log('Toast removed:', id);
-  }, []);
+  }, [removeToast]);
 
   const toast = {
     success: (title: string, message?: string, duration?: number) =>

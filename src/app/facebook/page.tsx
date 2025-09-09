@@ -1,20 +1,50 @@
 'use client';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Facebook, Users, TrendingUp, MessageSquare, Target, Activity, Eye, Share2, Trophy, BarChart3 } from 'lucide-react';
-import { getChannelStats, MOCK_CONTACTS, MOCK_CAMPAIGNS, MOCK_ACTIVITIES } from '@/lib/mock-data';
+import { getChannelStats, getContactsByChannel, getCampaignsByChannel, type Contact, type Campaign } from '@/lib/supabase-queries';
 
 export default function FacebookPage() {
-  const facebookStats = getChannelStats('facebook');
-  const facebookContacts = MOCK_CONTACTS.filter(c => c.source === 'facebook');
-  const facebookCampaigns = MOCK_CAMPAIGNS.filter(c => c.channel === 'facebook' || c.channel === 'both');
-  const recentActivity = MOCK_ACTIVITIES.filter(a => {
-    const contact = MOCK_CONTACTS.find(c => c.id === a.contact_id);
-    return contact?.source === 'facebook';
-  }).slice(0, 5);
+  const [facebookContacts, setFacebookContacts] = useState<Contact[]>([]);
+  const [facebookCampaigns, setFacebookCampaigns] = useState<Campaign[]>([]);
+  const [facebookStats, setFacebookStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [contactsData, campaignsData, statsData] = await Promise.all([
+          getContactsByChannel('facebook'),
+          getCampaignsByChannel('facebook'),
+          getChannelStats('facebook')
+        ]);
+        setFacebookContacts(contactsData);
+        setFacebookCampaigns(campaignsData);
+        setFacebookStats(statsData);
+      } catch (error) {
+        console.error('Error loading Facebook data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading Facebook data...</p>
+        </div>
+      </div>
+    );
+  }
   
   const topPerformers = facebookContacts
     .sort((a, b) => b.engagement_score - a.engagement_score)
     .slice(0, 5);
+  
+  const recentActivity: any[] = []; // Placeholder until events table is implemented
   
   const topInterests = ['Fitness', 'Nutrition', 'Weight Loss', 'Supplements', 'Wellness'];
   
@@ -94,7 +124,7 @@ export default function FacebookPage() {
           
           <div className="space-y-4">
             {recentActivity.map((activity) => {
-              const contact = MOCK_CONTACTS.find(c => c.id === activity.contact_id);
+              const contact = facebookContacts.find(c => c.id === activity.contact_id);
               if (!contact) return null;
               
               return (

@@ -1,21 +1,13 @@
 'use client';
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from 'next/navigation';
 import { motion } from "framer-motion";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
   Tooltip,
-  XAxis,
-  YAxis,
   Cell,
-  Legend,
 } from "recharts";
 import {
   Facebook,
@@ -28,12 +20,15 @@ import {
 } from "lucide-react";
 
 import {
-  MOCK_CONTACTS,
-  MOCK_CAMPAIGNS,
-  MOCK_AB_TESTS,
+  getDashboardData,
+  getContactStats,
   getCampaignStats,
-  getContactStats
-} from "@/lib/mock-data";
+  getCampaigns,
+  MOCK_AB_TESTS,
+  type Contact,
+  type Campaign
+} from "@/lib/supabase-queries";
+import { useDashboardFilters } from '@/hooks/use-dashboard-filters';
 
 import Card from "./Card";
 import CardHeader from "./CardHeader";
@@ -45,54 +40,128 @@ import SectionTitle from "./SectionTitle";
 import StepNumber from "./StepNumber";
 import TemplateCard from "./TemplateCard";
 
-// We'll implement these simply without external dependencies
-const useModal = () => ({ 
-  activeModal: null, 
-  modalData: null, 
-  openModal: (type: string, data?: any) => console.log('Modal:', type, data), 
-  closeModal: () => {} 
-});
-const useToast = () => ({ 
-  toasts: [], 
-  toast: { 
-    success: (title: string, message?: string) => console.log('Toast:', title, message), 
-    info: (title: string, message?: string) => console.log('Toast:', title, message) 
-  }, 
-  removeToast: () => {} 
-});
+import { useModal } from '@/hooks/use-modal';
+import { useToast } from '@/hooks/use-toast';
+import StrategyEditorModal from './StrategyEditorModal';
+import ABTestDetailModal from './ABTestDetailModal';
+import CreateABTestModal from './modals/CreateABTestModal';
+import TemplateEditorModal from './TemplateEditorModal';
+import { ToastContainer } from './ui/Toast';
 
 const Dashboard = () => {
+  console.log('🌟🌟🌟 DASHBOARD COMPONENT STARTING - CLEAN VERSION! 🌟🌟🌟');
+  
   const router = useRouter();
-  const { openModal } = useModal();
-  const { toast } = useToast();
+  const { activeModal, modalData, openModal, closeModal } = useModal();
+  const { toasts, toast, removeToast } = useToast();
+  const { filters } = useDashboardFilters();
+  const [isCreateABTestModalOpen, setIsCreateABTestModalOpen] = useState(false);
   
-  // Get stats from mock data
-  const contactStats = getContactStats();
-  const campaignStats = getCampaignStats();
+  // State for ALL real data from Supabase
+  const [contactStats, setContactStats] = useState<any>(null);
+  const [campaignStatsData, setCampaignStatsData] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   
-  const filteredCampaigns = useMemo(() => {
-    return MOCK_CAMPAIGNS.filter((c) => true); // Show all campaigns for now
+  // Local state for contact status updates
+  const [contactStatuses, setContactStatuses] = useState<Record<string, string>>({});
+  
+  // Load ALL real data from Supabase in useEffect
+  useEffect(() => {
+    console.log('🎯 LOADING ALL REAL SUPABASE DATA - Contacts, Campaigns, Dashboard...');
+    Promise.all([
+      getContactStats(),
+      getCampaignStats(), 
+      getDashboardData()
+    ])
+      .then(([contactStatsResult, campaignStatsResult, dashboardDataResult]) => {
+        console.log('🎯 REAL DATA - Contact Stats:', contactStatsResult);
+        console.log('🎯 REAL DATA - Campaign Stats:', campaignStatsResult);
+        console.log('🎯 REAL DATA - Dashboard Data:', dashboardDataResult);
+        
+        setContactStats(contactStatsResult);
+        setCampaignStatsData(campaignStatsResult);
+        setDashboardData(dashboardDataResult);
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error('🚨 ERROR loading real Supabase data:', error);
+        // Set minimal fallback data so dashboard doesn't crash
+        setContactStats({ totalContacts: 0, interestedContacts: 0, activeContacts: 0 });
+        setCampaignStatsData({ totalCampaigns: 0, activeCampaigns: 0, totalSent: 0, totalClicks: 0, avgCtr: 0 });
+        setDashboardData({ campaignCTr: [], channelSplit: [], campaigns: [], recentContacts: [] });
+        setLoading(false);
+      });
   }, []);
   
-  // Create chart data from mock data
-  const engagementByDay = [
-    { day: 'Mon', contacts: 1240, interested: 589, clicks: 234 },
-    { day: 'Tue', contacts: 1180, interested: 612, clicks: 278 },
-    { day: 'Wed', contacts: 1320, interested: 634, clicks: 245 },
-    { day: 'Thu', contacts: 1410, interested: 698, clicks: 312 },
-    { day: 'Fri', contacts: 1280, interested: 567, clicks: 198 },
-    { day: 'Sat', contacts: 980, interested: 445, clicks: 167 },
-    { day: 'Sun', contacts: 890, interested: 398, clicks: 143 }
-  ];
+  // Refs to store previous data for comparison
+  const prevDataRef = useRef<{
+    campaignCTr?: any[],
+    channelSplit?: any[]
+  }>({});
+
+  // Deep comparison helper
+  const deepEqual = useCallback((a: any, b: any): boolean => {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    if (Array.isArray(a) && Array.isArray(b)) {
+      if (a.length !== b.length) return false;
+      return a.every((item, index) => deepEqual(item, b[index]));
+    }
+    if (typeof a === 'object' && typeof b === 'object') {
+      const keysA = Object.keys(a);
+      const keysB = Object.keys(b);
+      if (keysA.length !== keysB.length) return false;
+      return keysA.every(key => deepEqual(a[key], b[key]));
+    }
+    return false;
+  }, []);
+
+  // Extract real data from Supabase state (with fallbacks for loading) - MUST BE BEFORE CONDITIONAL RETURN
+  const totalContacts = contactStats?.totalContacts || 0;
+  const interestedContacts = contactStats?.interestedContacts || 0;
+  const interestedRate = totalContacts > 0 ? interestedContacts / totalContacts : 0;
+  const totalClicks = campaignStatsData?.totalClicks || 0;
+  const ctrOverall = campaignStatsData?.avgCtr || 0;
+  const activeCampaigns = campaignStatsData?.activeCampaigns || 0;
   
-  const campaignCTr = MOCK_CAMPAIGNS.map(c => ({ name: c.name, ctr: c.ctr / 100 }));
-  
-  const channelSplit = [
-    { name: 'Instagram', value: MOCK_CONTACTS.filter(c => c.source === 'instagram').length },
-    { name: 'Facebook', value: MOCK_CONTACTS.filter(c => c.source === 'facebook').length }
-  ];
-  
-  const recentContacts = MOCK_CONTACTS.slice(0, 5);
+  // Real data from Supabase dashboard queries - MUST BE BEFORE CONDITIONAL RETURN
+  const channelSplit = dashboardData?.channelSplit || [];
+  const campaigns = dashboardData?.campaigns || [];
+  const recentContacts = dashboardData?.recentContacts || [];
+
+  // Memoize chart data with deep comparison to prevent unnecessary re-renders - MUST BE BEFORE CONDITIONAL RETURN
+
+  const memoizedCampaignCTr = useMemo(() => {
+    const currentData = dashboardData?.campaignCTr || [];
+    console.log('🔄 Using REAL Campaign CTR from Supabase dashboardData:', currentData);
+    if (deepEqual(currentData, prevDataRef.current.campaignCTr)) {
+      return prevDataRef.current.campaignCTr || currentData;
+    }
+    prevDataRef.current.campaignCTr = currentData;
+    return currentData;
+  }, [dashboardData?.campaignCTr, deepEqual]);
+
+  const memoizedChannelSplit = useMemo(() => {
+    const currentData = channelSplit || [];
+    if (deepEqual(currentData, prevDataRef.current.channelSplit)) {
+      return prevDataRef.current.channelSplit || currentData;
+    }
+    prevDataRef.current.channelSplit = currentData;
+    return currentData;
+  }, [channelSplit, deepEqual]);
+
+  // Show loading state AFTER all hooks are called
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
   
   const brandBlue = '#3b82f6';
   const brandBlack = '#1f2937';
@@ -103,26 +172,68 @@ const Dashboard = () => {
     toast.success('Export Started', 'Your data export is being prepared.');
   };
 
-  const handlePromoteWinner = () => {
-    console.log('Promoting winner...');
+  const handlePromoteWinner = (testId?: string, winnerId?: string) => {
+    console.log('Promoting winner...', testId, winnerId);
     toast.success('Winner Promoted', 'The winning variant has been activated.');
-  };
-
-  const handleDuplicate = (templateData: any) => {
-    console.log('Duplicating template...', templateData);
-    toast.success('Template Duplicated', 'A copy has been created.');
+    closeModal();
   };
 
   const handleViewContact = (contactData: any) => {
     openModal('contact-detail', contactData);
   };
 
-  const handleViewABTest = (testData: any) => {
-    openModal('ab-test-detail', testData);
+  const handleToggleContactStatus = async (contactId: string, currentStatus: string) => {
+    // Toggle between active/inactive status
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    
+    try {
+      // Update local state immediately for UI responsiveness
+      setContactStatuses(prev => ({
+        ...prev,
+        [contactId]: newStatus
+      }));
+      
+      // In a real implementation, this would update Supabase
+      console.log(`Updating contact ${contactId} from ${currentStatus} to ${newStatus}`);
+      
+      // Show toast based on action
+      if (newStatus === 'inactive') {
+        toast.success('Contact Paused', `Contact messaging has been paused`);
+      } else {
+        toast.success('Contact Resumed', `Contact messaging has been resumed`);
+      }
+      
+    } catch (error) {
+      // Revert local state on error
+      setContactStatuses(prev => ({
+        ...prev,
+        [contactId]: currentStatus
+      }));
+      console.error('Error updating contact status:', error);
+      toast.error('Error', 'Failed to update contact status');
+    }
   };
 
-  const handleEditTemplate = (templateData: any) => {
+  const handleViewABTest = (testData: any) => {
+    if (testData && testData.variants) {
+      openModal('ab-test-detail', testData);
+    } else {
+      toast.error('Error', 'Unable to load A/B test data');
+    }
+  };
+
+  const handleEditTemplate = (templateData?: any) => {
     openModal('template-editor', templateData);
+  };
+
+  const handleSaveStrategy = (steps: any) => {
+    console.log('Saving strategy:', steps);
+    toast.success('Strategy Saved', 'Your follow-up strategy has been updated.');
+  };
+
+  const handleSaveTemplate = (template: any) => {
+    console.log('Saving template:', template);
+    toast.success('Template Saved', 'Your message template has been saved.');
   };
 
   const handleEditStrategy = () => {
@@ -141,105 +252,113 @@ const Dashboard = () => {
     router.push('/settings');
   };
 
-  const totalContacts = contactStats.totalContacts;
-  const interestedContacts = contactStats.interestedContacts;
-  const interestedRate = interestedContacts / totalContacts;
-  const totalClicks = MOCK_CONTACTS.reduce((sum, c) => sum + c.clicks_count, 0);
-  const ctrOverall = campaignStats.avgCTR / 100;
-  const activeCampaigns = campaignStats.activeCampaigns;
+  const handleCreateABTest = (testData: any) => {
+    // In a real app, this would create the test via API
+    console.log('Creating A/B test:', testData);
+    toast.success(
+      'A/B Test Created!',
+      testData.sendImmediately 
+        ? `${testData.name} is now running and sending messages.`
+        : `${testData.name} has been created and is ready to launch.`
+    );
+    setIsCreateABTestModalOpen(false);
+  };
+
+  const openCreateABTestModal = () => {
+    setIsCreateABTestModalOpen(true);
+  };
+
+  const closeCreateABTestModal = () => {
+    setIsCreateABTestModalOpen(false);
+  };
+
+  console.log('🎨🎨🎨 CLEAN DASHBOARD ABOUT TO RENDER! 🎨🎨🎨');
+  console.log('Current state:', { loading, campaignCTrData: memoizedCampaignCTr.length });
 
   return (
-    <div className="p-5">
-      {/* KPI grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        <Kpi label="Total Contacts" value={totalContacts.toLocaleString()} icon={<Users size={18} />} helper="Across IG + FB" />
-        <Kpi label="Interested Contacts" value={interestedContacts.toLocaleString()} icon={<Activity size={18} />} helper={`${Math.round(interestedRate * 100)}% interest rate`} />
-        <Kpi label="Total Clicks" value={totalClicks.toLocaleString()} icon={<LineChartIcon size={18} />} helper="Link clicks" />
-        <Kpi label="Overall CTR" value={`${Math.round(ctrOverall * 100)}%`} icon={<ArrowRight size={18} />} helper="DM → Website" />
-        <Kpi label="Active Campaigns" value={`${activeCampaigns}`} icon={<Sparkles size={18} />} helper="Running now" />
+    <div className="p-6">
+      {/* === OVERVIEW METRICS === */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-xl font-bold text-white">📊 Overview</h2>
+          <Badge tone="slate">Real-time data</Badge>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          <Kpi label="Total Contacts" value={totalContacts.toLocaleString()} icon={<Users size={18} />} helper="All leads in system" />
+          <Kpi label="Interested" value={`${interestedContacts} (${Math.round(interestedRate * 100)}%)`} icon={<Activity size={18} />} helper="Qualified prospects" />
+          <Kpi label="Campaign Clicks" value={totalClicks.toLocaleString()} icon={<LineChartIcon size={18} />} helper="Total engagements" />
+          <Kpi label="Overall CTR" value={`${Math.round(ctrOverall * 100)}%`} icon={<ArrowRight size={18} />} helper="Campaign performance" />
+          <Kpi label="Active Campaigns" value={`${activeCampaigns}`} icon={<Sparkles size={18} />} helper="Currently running" />
+        </div>
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Engagement Over Time</CardTitle>
-              <Badge>Period: Last 7 days</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={engagementByDay}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip formatter={(v: number, n: string) => `${v} ${n}`} />
-                <Legend />
-                <Line type="monotone" dataKey="contacts" stroke={brandBlue} strokeWidth={2} dot={false} name="Contacts" />
-                <Line type="monotone" dataKey="interested" stroke="#10b981" strokeWidth={2} dot={false} name="Interested" />
-                <Line type="monotone" dataKey="clicks" stroke="#f59e0b" strokeWidth={2} dot={false} name="Clicks" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Campaign CTR</CardTitle>
-              <Badge tone="slate">By campaign</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={campaignCTr}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tickFormatter={(v) => `${Math.round(v * 100)}%`} />
-                <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
-                <Bar dataKey="ctr" radius={[6, 6, 0, 0]}>
-                  {campaignCTr.map((_, i) => (
-                    <Cell key={i} fill={brandBlue} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Second charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Channel Mix</CardTitle>
-              <div className="flex items-center gap-2">
-                <Instagram className="text-pink-500" size={16} />
-                <Facebook className="text-blue-600" size={16} />
+      {/* === CAMPAIGN PERFORMANCE === */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-xl font-bold text-white">📈 Campaign Performance</h2>
+          <Badge tone="blue">Analytics</Badge>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Campaign CTR</CardTitle>
+                <Badge tone="slate">By campaign</Badge>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Tooltip />
-                <Pie data={channelSplit} dataKey="value" nameKey="name" outerRadius={90}>
-                  {channelSplit.map((_, index) => (
-                    <Cell key={`slice-${index}`} fill={index === 0 ? brandBlue : brandBlack} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="mt-3 flex items-center justify-center gap-3 text-sm">
-              <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: brandBlue }} /> Instagram</span>
-              <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: brandBlack }} /> Facebook</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {memoizedCampaignCTr.map((campaign, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
+                    <div className="flex-1">
+                      <div className="font-medium text-white">{campaign.name}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-semibold text-blue-600">{Math.round(campaign.ctr)}%</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Channel Mix</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Instagram className="text-pink-500" size={16} />
+                  <Facebook className="text-blue-600" size={16} />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart key="channel-pie-chart">
+                  <Tooltip />
+                  <Pie data={memoizedChannelSplit} dataKey="value" nameKey="name" outerRadius={90} animationDuration={0}>
+                    {memoizedChannelSplit.map((_, index: number) => (
+                      <Cell key={`slice-${index}`} fill={index === 0 ? brandBlue : brandBlack} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-3 flex items-center justify-center gap-3 text-sm">
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: brandBlue }} /> Instagram</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: brandBlack }} /> Facebook</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
-        <Card className="lg:col-span-2">
+      {/* === AUTOMATION STRATEGY === */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-xl font-bold text-white">⚡ Automation Strategy</h2>
+          <Badge tone="green">Live preview</Badge>
+        </div>
+        <Card>
           <CardHeader>
             <CardTitle>Follow-up Strategy (Preview)</CardTitle>
           </CardHeader>
@@ -249,7 +368,7 @@ const Dashboard = () => {
                 <StepNumber>1</StepNumber>
                 <div className="flex-1">
                   <div className="font-medium">Initial DM</div>
-                  <div className="text-sm text-slate-500">Auto-reply + qualify with 1 question → send website link (with UTM)</div>
+                  <div className="text-sm text-gray-400">Auto-reply + qualify with 1 question → send website link (with UTM)</div>
                 </div>
                 <Badge tone="green">Active</Badge>
               </li>
@@ -257,7 +376,7 @@ const Dashboard = () => {
                 <StepNumber>2</StepNumber>
                 <div className="flex-1">
                   <div className="font-medium">Follow-up #1</div>
-                  <div className="text-sm text-slate-500">24h later if no click → soft nudge with social proof</div>
+                  <div className="text-sm text-gray-400">24h later if no click → soft nudge with social proof</div>
                 </div>
                 <Badge tone="slate">Scheduled</Badge>
               </li>
@@ -265,7 +384,7 @@ const Dashboard = () => {
                 <StepNumber>3</StepNumber>
                 <div className="flex-1">
                   <div className="font-medium">Re-engagement</div>
-                  <div className="text-sm text-slate-500">7 days later if still interested → different offer</div>
+                  <div className="text-sm text-gray-400">7 days later if still interested → different offer</div>
                 </div>
                 <Badge tone="slate">Conditional</Badge>
               </li>
@@ -273,13 +392,13 @@ const Dashboard = () => {
             <div className="mt-4 flex items-center gap-2">
               <button 
                 onClick={handleEditStrategy}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-600 px-3 py-2 text-sm text-gray-300 hover:bg-gray-700"
               >
                 Edit Strategy
               </button>
               <button 
                 onClick={handleNavigateToSettings}
-                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-3 py-2 text-sm hover:bg-black"
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700"
               >
                 View Automation
               </button>
@@ -288,8 +407,13 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Campaigns & AB Tests */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mt-4">
+      {/* === CAMPAIGN MANAGEMENT === */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-xl font-bold text-white">🎯 Campaign Management</h2>
+          <Badge tone="blue">Active campaigns</Badge>
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         {/* Campaigns table */}
         <Card className="xl:col-span-2">
           <CardHeader>
@@ -298,7 +422,7 @@ const Dashboard = () => {
                 <>
                   <button 
                     onClick={handleExport}
-                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm hover:bg-slate-50"
+                    className="rounded-xl border border-gray-600 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700"
                   >
                     Export
                   </button>
@@ -318,7 +442,7 @@ const Dashboard = () => {
             <div className="overflow-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-slate-500 border-b border-slate-100">
+                  <tr className="text-left text-gray-400 border-b border-gray-700">
                     <th className="py-2 pr-3">Name</th>
                     <th className="py-2 pr-3">Channel</th>
                     <th className="py-2 pr-3">Status</th>
@@ -329,15 +453,15 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCampaigns.map((c, i) => (
-                    <tr key={i} className="border-b border-slate-100">
-                      <td className="py-3 pr-3 font-medium text-slate-900">{c.name}</td>
+                  {campaigns.map((c: any, i: number) => (
+                    <tr key={i} className="border-b border-gray-700">
+                      <td className="py-3 pr-3 font-medium text-white">{c.name}</td>
                       <td className="py-3 pr-3">{c.channel}</td>
                       <td className="py-3 pr-3">
                         <Badge tone={c.status === "running" ? "green" : "yellow"}>{c.status}</Badge>
                       </td>
                       <td className="py-3 pr-3">{c.sent.toLocaleString()}</td>
-                      <td className="py-3 pr-3">{c.clicks.toLocaleString()} <span className="text-slate-400">({Math.round((c.clicks / c.sent) * 100)}%)</span></td>
+                      <td className="py-3 pr-3">{c.clicks.toLocaleString()} <span className="text-gray-400">({c.sent > 0 ? Math.round((c.clicks / c.sent) * 100) : 0}%)</span></td>
                       <td className="py-3 pr-3">{Math.round(c.ctr * 100)}%</td>
                       <td className="py-3 pr-3">-</td>
                     </tr>
@@ -354,8 +478,8 @@ const Dashboard = () => {
             <SectionTitle
               right={
                 <button 
-                  onClick={() => toast.info('Feature Coming Soon', 'A/B test creation will be available soon.')}
-                  className="rounded-xl bg-slate-900 text-white px-3 py-1.5 text-sm hover:bg-black"
+                  onClick={openCreateABTestModal}
+                  className="rounded-xl bg-blue-600 text-white px-3 py-1.5 text-sm hover:bg-blue-700"
                 >
                   New A/B Test
                 </button>
@@ -367,32 +491,32 @@ const Dashboard = () => {
           <CardContent>
             <div className="space-y-3">
               {MOCK_AB_TESTS.map((t, i) => (
-                <div key={i} className="p-3 border border-slate-200 rounded-xl">
+                <div key={i} className="p-3 border border-gray-700 rounded-xl bg-gray-800/50">
                   <div className="flex items-center justify-between">
                     <div className="font-medium">{t.name}</div>
                     <Badge tone={t.status === 'completed' ? "green" : "slate"}>{t.status}</Badge>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
-                    <div className="p-2 bg-slate-50 rounded-lg">
-                      <div className="text-slate-500">Variant A</div>
+                    <div className="p-2 bg-gray-700/50 rounded-lg">
+                      <div className="text-gray-400">Variant A</div>
                       <div>CTR {Math.round(t.variants[0].ctr)}% • Clicks {t.variants[0].clicks}</div>
                     </div>
-                    <div className="p-2 bg-slate-50 rounded-lg">
-                      <div className="text-slate-500">Variant B</div>
+                    <div className="p-2 bg-gray-700/50 rounded-lg">
+                      <div className="text-gray-400">Variant B</div>
                       <div>CTR {Math.round(t.variants[1].ctr)}% • Clicks {t.variants[1].clicks}</div>
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
                     <div>confidence {t.confidence_level}%</div>
                     <div className="flex items-center gap-2">
                       <button 
                         onClick={() => handleViewABTest(t)}
-                        className="rounded-lg border border-slate-200 px-2 py-1 hover:bg-slate-50"
+                        className="rounded-lg border border-gray-600 px-2 py-1 text-gray-300 hover:bg-gray-700"
                       >
                         View Details
                       </button>
                       <button 
-                        onClick={handlePromoteWinner}
+                        onClick={() => handlePromoteWinner(t.id, t.winner)}
                         className="rounded-lg bg-blue-600 text-white px-2 py-1 hover:bg-blue-700"
                       >
                         Promote winner
@@ -404,16 +528,22 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
 
-      {/* Recent contacts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+      {/* === CONTACT MANAGEMENT === */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-xl font-bold text-white">👥 Contact Management</h2>
+          <Badge tone="green">Live contacts</Badge>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
             <SectionTitle
               right={<button 
                 onClick={handleNavigateToContacts}
-                className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm hover:bg-slate-50"
+                className="rounded-xl border border-gray-600 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700"
               >
                 View all
               </button>}
@@ -422,27 +552,31 @@ const Dashboard = () => {
             </SectionTitle>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-gray-700">
               {recentContacts.map((c, i) => (
                 <li key={i} className="py-3 flex items-center justify-between">
                   <div>
-                    <div className="font-medium">{c.name} <span className="text-slate-400 font-normal">{c.handle}</span></div>
-                    <div className="text-xs text-slate-500">{c.source} • {c.status}</div>
+                    <div className="font-medium text-white">{c.name} <span className="text-gray-400 font-normal">{c.handle}</span></div>
+                    <div className="text-xs text-gray-400">{c.channel} • User ID: {c.user_id}</div>
                     <div className="text-xs">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${
-                        c.interest_level === 'interested' ? 'bg-green-100 text-green-700' : 
-                        c.interest_level === 'not_interested' ? 'bg-red-100 text-red-700' : 
-                        'bg-gray-100 text-gray-700'
+                        c.interest_level === 'interested' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 
+                        c.interest_level === 'not_interested' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 
+                        'bg-gray-500/20 text-gray-400 border border-gray-500/30'
                       }`}>
                         {c.interest_level.replace('_', ' ')}
                       </span>
                     </div>
                   </div>
                   <button 
-                    onClick={() => handleViewContact(c)}
-                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm hover:bg-slate-50"
+                    onClick={() => handleToggleContactStatus(c.id, contactStatuses[c.id] || c.status)}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                      (contactStatuses[c.id] || c.status) === 'active' 
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30' 
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                    }`}
                   >
-                    View Contact
+                    {(contactStatuses[c.id] || c.status) === 'active' ? 'Pause' : 'Resume'}
                   </button>
                 </li>
               ))}
@@ -465,17 +599,48 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <TemplateCard title="Intro (IG)" body="Hey {{first_name}}! Want your brand featured in top outlets? Here’s our PR pack → {{link}}" />
+              <TemplateCard title="Intro (IG)" body="Hey {{first_name}}! Want your brand featured in top outlets? Here's our PR pack → {{link}}" />
               <TemplateCard title="Intro (FB)" body="Thanks for reaching out! Quick overview + pricing here → {{link}}" />
               <TemplateCard title="Follow-up 24h" body="Still thinking it over? Here's a client result + link to pick your pack → {{link}}" />
               <TemplateCard title="Re-engagement" body="Haven't heard back - here's what our clients are saying. Still interested? → {{link}}" />
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
 
       {/* Footer */}
-      <div className="mt-6 text-center text-xs text-slate-400">© {new Date().getFullYear()} anothezero • CRM Dashboard</div>
+      <div className="mt-6 text-center text-xs text-gray-500">© {new Date().getFullYear()} anothezero • CRM Dashboard</div>
+
+      {/* Modals */}
+      <StrategyEditorModal
+        isOpen={activeModal === 'strategy-editor'}
+        onClose={closeModal}
+        onSave={handleSaveStrategy}
+      />
+      
+      <ABTestDetailModal
+        isOpen={activeModal === 'ab-test-detail'}
+        onClose={closeModal}
+        testData={modalData}
+        onPromoteWinner={handlePromoteWinner}
+      />
+      
+      <CreateABTestModal
+        isOpen={isCreateABTestModalOpen}
+        onClose={closeCreateABTestModal}
+        onCreateTest={handleCreateABTest}
+      />
+      
+      <TemplateEditorModal
+        isOpen={activeModal === 'template-editor'}
+        onClose={closeModal}
+        templateData={modalData}
+        onSave={handleSaveTemplate}
+      />
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 };

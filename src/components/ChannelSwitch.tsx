@@ -7,12 +7,12 @@ interface ChannelSwitchProps {
 }
 
 const ChannelSwitch: React.FC<ChannelSwitchProps> = ({ value, onChange }) => (
-  <div className="inline-flex rounded-xl border border-slate-200 overflow-hidden">
+  <div className="inline-flex rounded-xl border border-gray-600 overflow-hidden">
     {(["All", "Instagram", "Facebook"] as const).map((v: Channel) => (
       <button
         key={v}
         onClick={() => onChange(v)}
-        className={`px-3 py-2 text-sm ${value === v ? "bg-blue-600 text-white" : "bg-white hover:bg-slate-50"}`}
+        className={`px-3 py-2 text-sm transition ${value === v ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
         aria-pressed={value === v}
       >
         {v}

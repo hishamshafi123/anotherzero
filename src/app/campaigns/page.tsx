@@ -1,7 +1,8 @@
 'use client';
-import React, { useState, useMemo } from 'react';
-import { Play, Pause, BarChart3, Users, MousePointer, Plus, Calendar, Filter } from 'lucide-react';
-import { MOCK_CAMPAIGNS, getCampaignStats } from '@/lib/mock-data';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Play, Pause, BarChart3, Users, MousePointer, Plus, Calendar, Filter, CheckCircle, X } from 'lucide-react';
+import { getCampaigns, getCampaignStats, type Campaign } from '@/lib/supabase-queries';
 
 const STATUS_COLORS = {
   running: 'bg-green-100 text-green-800 border-green-200',
@@ -18,18 +19,62 @@ const CHANNEL_COLORS = {
 };
 
 export default function CampaignsPage() {
+  const searchParams = useSearchParams();
   const [statusFilter, setStatusFilter] = useState('all');
   const [channelFilter, setChannelFilter] = useState('all');
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignStats, setCampaignStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   
-  const campaignStats = getCampaignStats();
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [campaignsData, statsData] = await Promise.all([
+          getCampaigns(),
+          getCampaignStats()
+        ]);
+        setCampaigns(campaignsData);
+        setCampaignStats(statsData);
+      } catch (error) {
+        console.error('Error loading campaigns:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+  
+  useEffect(() => {
+    // Check for success parameter and show popup
+    if (searchParams.get('success') === 'true') {
+      setShowSuccessPopup(true);
+      // Auto-hide popup after 5 seconds
+      const timer = setTimeout(() => {
+        setShowSuccessPopup(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
   
   const filteredCampaigns = useMemo(() => {
-    return MOCK_CAMPAIGNS.filter(campaign => {
+    return campaigns.filter(campaign => {
       const matchesStatus = statusFilter === 'all' || campaign.status === statusFilter;
       const matchesChannel = channelFilter === 'all' || campaign.channel === channelFilter || campaign.channel === 'both';
       return matchesStatus && matchesChannel;
     });
-  }, [statusFilter, channelFilter]);
+  }, [campaigns, statusFilter, channelFilter]);
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading campaigns...</p>
+        </div>
+      </div>
+    );
+  }
   
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -51,6 +96,27 @@ export default function CampaignsPage() {
 
   return (
     <div className="p-6">
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div className="fixed top-4 right-4 z-50 bg-green-50 border border-green-200 rounded-xl shadow-lg p-4 max-w-sm">
+          <div className="flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-green-800">Campaign Started!</h4>
+              <p className="text-sm text-green-700 mt-1">
+                {searchParams.get('message') || 'Campaign started, will take a minute to load'}
+              </p>
+            </div>
+            <button 
+              onClick={() => setShowSuccessPopup(false)}
+              className="text-green-400 hover:text-green-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -152,7 +218,7 @@ export default function CampaignsPage() {
           </div>
           
           <div className="ml-auto text-sm text-gray-400">
-            {filteredCampaigns.length} of {MOCK_CAMPAIGNS.length} campaigns
+            {filteredCampaigns.length} of {campaigns.length} campaigns
           </div>
         </div>
       </div>

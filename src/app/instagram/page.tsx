@@ -1,20 +1,50 @@
 'use client';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Instagram, Users, TrendingUp, MessageSquare, Hash, Activity, Eye, Heart, Share2, Clock, Trophy } from 'lucide-react';
-import { getChannelStats, MOCK_CONTACTS, MOCK_CAMPAIGNS, MOCK_ACTIVITIES } from '@/lib/mock-data';
+import { getChannelStats, getContactsByChannel, getCampaignsByChannel, type Contact, type Campaign } from '@/lib/supabase-queries';
 
 export default function InstagramPage() {
-  const instagramStats = getChannelStats('instagram');
-  const instagramContacts = MOCK_CONTACTS.filter(c => c.source === 'instagram');
-  const instagramCampaigns = MOCK_CAMPAIGNS.filter(c => c.channel === 'instagram' || c.channel === 'both');
-  const recentActivity = MOCK_ACTIVITIES.filter(a => {
-    const contact = MOCK_CONTACTS.find(c => c.id === a.contact_id);
-    return contact?.source === 'instagram';
-  }).slice(0, 5);
+  const [instagramContacts, setInstagramContacts] = useState<Contact[]>([]);
+  const [instagramCampaigns, setInstagramCampaigns] = useState<Campaign[]>([]);
+  const [instagramStats, setInstagramStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [contactsData, campaignsData, statsData] = await Promise.all([
+          getContactsByChannel('instagram'),
+          getCampaignsByChannel('instagram'),
+          getChannelStats('instagram')
+        ]);
+        setInstagramContacts(contactsData);
+        setInstagramCampaigns(campaignsData);
+        setInstagramStats(statsData);
+      } catch (error) {
+        console.error('Error loading Instagram data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading Instagram data...</p>
+        </div>
+      </div>
+    );
+  }
   
   const topPerformers = instagramContacts
     .sort((a, b) => b.engagement_score - a.engagement_score)
     .slice(0, 5);
+  
+  const recentActivity: any[] = []; // Placeholder until events table is implemented
   
   const topHashtags = ['#fitness', '#health', '#supplements', '#workout', '#nutrition'];
   
@@ -94,7 +124,7 @@ export default function InstagramPage() {
           
           <div className="space-y-4">
             {recentActivity.map((activity) => {
-              const contact = MOCK_CONTACTS.find(c => c.id === activity.contact_id);
+              const contact = instagramContacts.find(c => c.id === activity.contact_id);
               if (!contact) return null;
               
               return (

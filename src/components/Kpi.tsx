@@ -11,13 +11,13 @@ const Kpi: React.FC<{
 }> = ({ label, value, icon, helper }) => (
   <Card>
     <CardContent className="flex items-center gap-3">
-      <div className="p-2 rounded-xl bg-blue-50 text-blue-700">{icon}</div>
+      <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400">{icon}</div>
       <div className="flex-1">
-        <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-        <div className="text-2xl font-bold text-slate-900">{value}</div>
-        {helper && <div className="text-xs text-slate-500 mt-1">{helper}</div>}
+        <div className="text-xs uppercase tracking-wide text-gray-400">{label}</div>
+        <div className="text-2xl font-bold text-white">{value}</div>
+        {helper && <div className="text-xs text-gray-400 mt-1">{helper}</div>}
       </div>
-      <ArrowUpRight className="text-slate-300" />
+      <ArrowUpRight className="text-gray-500" />
     </CardContent>
   </Card>
 );

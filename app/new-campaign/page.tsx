@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export default function NewCampaignPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     channel: 'both',
@@ -17,12 +18,51 @@ export default function NewCampaignPage() {
     variantB: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would normally send the data to your API
-    console.log('Campaign data:', formData);
-    // Redirect to campaigns page after creation
-    router.push('/campaigns');
+    setLoading(true);
+    
+    try {
+      // Prepare campaign data for n8n webhook
+      const campaignPayload = {
+        ...formData,
+        createdAt: new Date().toISOString(),
+        status: formData.scheduleType === 'now' ? 'running' : 'scheduled',
+        timestamp: Date.now()
+      };
+      
+      console.log('🚀 Sending campaign data to n8n webhook...');
+      console.log('📍 Webhook URL:', 'https://n8n.anas.codes/webhook-test/46f147c3-c946-47cd-a613-212f8e06d7b6');
+      console.log('📦 Campaign payload:', JSON.stringify(campaignPayload, null, 2));
+      
+      // Send to our API route (which forwards to n8n webhook)
+      const response = await fetch('/api/send-campaign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(campaignPayload)
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        console.log('✅ Campaign sent to n8n successfully!');
+        console.log('📡 n8n response:', result.n8nResponse);
+        alert('✅ Campaign sent to n8n successfully!');
+        // Redirect to campaigns page after successful submission
+        router.push('/campaigns');
+      } else {
+        console.error('❌ Failed to send campaign:', result.error || `${response.status} ${response.statusText}`);
+        alert(`❌ Failed to send campaign: ${result.error || 'Please try again.'}`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error sending campaign to n8n:', error);
+      alert('Error sending campaign. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
@@ -286,10 +326,24 @@ export default function NewCampaignPage() {
           
           <button
             type="submit"
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            disabled={loading}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition ${
+              loading 
+                ? 'bg-gray-600 cursor-not-allowed' 
+                : 'bg-blue-600 hover:bg-blue-700'
+            } text-white`}
           >
-            <Send className="h-4 w-4" />
-            {formData.scheduleType === 'now' ? 'Send Campaign' : 'Schedule Campaign'}
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Sending to n8n...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4" />
+                {formData.scheduleType === 'now' ? 'Send Campaign' : 'Schedule Campaign'}
+              </>
+            )}
           </button>
         </div>
       </form>

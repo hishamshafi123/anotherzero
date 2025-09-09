@@ -1,7 +1,7 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Filter, Users, TrendingUp, Activity, Eye, ExternalLink, Tag } from 'lucide-react';
-import { MOCK_CONTACTS, getContactStats } from '@/lib/mock-data';
+import { getContacts, getContactStats, type Contact } from '@/lib/supabase-queries';
 
 const INTEREST_COLORS = {
   interested: 'bg-green-100 text-green-800 border-green-200',
@@ -19,11 +19,30 @@ export default function ContactsPage() {
   const [interestFilter, setInterestFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactStats, setContactStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   
-  const contactStats = getContactStats();
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [contactsData, statsData] = await Promise.all([
+          getContacts(),
+          getContactStats()
+        ]);
+        setContacts(contactsData);
+        setContactStats(statsData);
+      } catch (error) {
+        console.error('Error loading contacts:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
   
   const filteredContacts = useMemo(() => {
-    return MOCK_CONTACTS.filter(contact => {
+    return contacts.filter(contact => {
       const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                            contact.handle.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesInterest = interestFilter === 'all' || contact.interest_level === interestFilter;
@@ -31,7 +50,18 @@ export default function ContactsPage() {
       
       return matchesSearch && matchesInterest && matchesSource;
     });
-  }, [searchTerm, interestFilter, sourceFilter]);
+  }, [contacts, searchTerm, interestFilter, sourceFilter]);
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading contacts...</p>
+        </div>
+      </div>
+    );
+  }
   
   const toggleContactSelection = (contactId: string) => {
     setSelectedContacts(prev => 
@@ -149,7 +179,7 @@ export default function ContactsPage() {
         {/* Results Count */}
         <div className="mt-4 flex items-center justify-between">
           <p className="text-gray-400 text-sm">
-            Showing {filteredContacts.length} of {MOCK_CONTACTS.length} contacts
+            Showing {filteredContacts.length} of {contacts.length} contacts
           </p>
           
           {selectedContacts.length > 0 && (
@@ -242,7 +272,7 @@ export default function ContactsPage() {
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <div className="text-sm text-gray-300">{formatDate(contact.last_seen_at)}</div>
+                    <div className="text-sm text-gray-300">{formatDate(contact.last_interaction_at)}</div>
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2">

@@ -1,7 +1,7 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Filter, Users, TrendingUp, Activity, Download, UserPlus, MoreVertical, Tag, MessageSquare } from 'lucide-react';
-import { MOCK_CONTACTS, getContactStats, type Contact } from '@/lib/mock-data';
+import { getContacts, getContactStats, type Contact } from '@/lib/supabase-queries';
 
 interface ContactsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -16,7 +16,7 @@ interface ContactFilters {
 }
 
 const ContactsPage: React.FC<ContactsPageProps> = ({ searchParams }) => {
-  const [contacts, setContacts] = useState<Contact[]>(MOCK_CONTACTS);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [filters, setFilters] = useState<ContactFilters>({
     interest: 'all',
@@ -25,9 +25,28 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ searchParams }) => {
     search: '',
     tags: []
   });
+  const [contactStats, setContactStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [contactsData, statsData] = await Promise.all([
+          getContacts(),
+          getContactStats()
+        ]);
+        setContacts(contactsData);
+        setContactStats(statsData);
+      } catch (error) {
+        console.error('Error loading contacts:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
 
-  const contactStats = getContactStats();
-
+  // Move useMemo before early returns to maintain hook order
   const filteredContacts = useMemo(() => {
     return contacts.filter(contact => {
       if (filters.interest !== 'all' && contact.interest_level !== filters.interest) return false;
@@ -39,6 +58,18 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ searchParams }) => {
       return true;
     });
   }, [contacts, filters]);
+
+  // Loading state check after all hooks
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading contacts...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSelectContact = (contactId: string) => {
     setSelectedContacts(prev => 
@@ -112,7 +143,7 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ searchParams }) => {
                 <Users className="h-6 w-6 text-blue-400" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">{contactStats.totalContacts}</div>
+            <div className="text-2xl font-bold text-white mb-1">{contactStats?.totalContacts || 0}</div>
             <div className="text-sm text-gray-400">Total Contacts</div>
           </div>
 
@@ -122,7 +153,7 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ searchParams }) => {
                 <TrendingUp className="h-6 w-6 text-green-400" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">{Math.round((contactStats.interestedContacts / contactStats.totalContacts) * 100)}%</div>
+            <div className="text-2xl font-bold text-white mb-1">{contactStats ? Math.round((contactStats.interestedContacts / contactStats.totalContacts) * 100) : 0}%</div>
             <div className="text-sm text-gray-400">Interested Rate</div>
           </div>
 
@@ -132,7 +163,7 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ searchParams }) => {
                 <Activity className="h-6 w-6 text-purple-400" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">{contactStats.activeContacts}</div>
+            <div className="text-2xl font-bold text-white mb-1">{contactStats?.activeContacts || 0}</div>
             <div className="text-sm text-gray-400">Active Contacts</div>
           </div>
 
@@ -142,7 +173,7 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ searchParams }) => {
                 <MessageSquare className="h-6 w-6 text-orange-400" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">{contactStats.avgEngagement}</div>
+            <div className="text-2xl font-bold text-white mb-1">{contactStats?.avgEngagement || 0}</div>
             <div className="text-sm text-gray-400">Avg Engagement</div>
           </div>
         </div>
@@ -297,11 +328,11 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ searchParams }) => {
                     </div>
                   </td>
                   <td className="p-4">
-                    <div className="text-sm text-gray-300">{formatDate(contact.last_seen_at)}</div>
+                    <div className="text-sm text-gray-300">{formatDate(contact.last_interaction_at)}</div>
                   </td>
                   <td className="p-4">
                     <div className="flex flex-wrap gap-1">
-                      {contact.tags.slice(0, 2).map(tag => (
+                      {contact.tags.slice(0, 2).map((tag: string) => (
                         <span key={tag} className="inline-flex px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded">
                           {tag}
                         </span>

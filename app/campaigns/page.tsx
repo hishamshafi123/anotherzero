@@ -1,22 +1,52 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Play, Pause, Copy, Archive, BarChart3, MousePointer, TrendingUp, Calendar, Filter } from 'lucide-react';
-import { MOCK_CAMPAIGNS, getCampaignStats, type Campaign } from '@/lib/mock-data';
+import { getCampaigns, getCampaignStats, type Campaign } from '@/lib/supabase-queries';
 
 interface CampaignsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 const CampaignsPage: React.FC<CampaignsPageProps> = () => {
-  const [campaigns, setCampaigns] = useState<Campaign[]>(MOCK_CAMPAIGNS);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
-
-  const campaignStats = getCampaignStats();
+  const [campaignStats, setCampaignStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [campaignsData, statsData] = await Promise.all([
+          getCampaigns(),
+          getCampaignStats()
+        ]);
+        setCampaigns(campaignsData);
+        setCampaignStats(statsData);
+      } catch (error) {
+        console.error('Error loading campaigns:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
 
   const filteredCampaigns = useMemo(() => {
     if (statusFilter === 'all') return campaigns;
     return campaigns.filter(campaign => campaign.status === statusFilter);
   }, [campaigns, statusFilter]);
+
+  // Loading state check after all hooks
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading campaigns...</p>
+        </div>
+      </div>
+    );
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -94,7 +124,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = () => {
                 <BarChart3 className="h-6 w-6 text-blue-400" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">{campaignStats.totalCampaigns}</div>
+            <div className="text-2xl font-bold text-white mb-1">{campaignStats?.totalCampaigns || 0}</div>
             <div className="text-sm text-gray-400">Total Campaigns</div>
           </div>
 
@@ -104,7 +134,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = () => {
                 <Play className="h-6 w-6 text-green-400" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">{campaignStats.activeCampaigns}</div>
+            <div className="text-2xl font-bold text-white mb-1">{campaignStats?.activeCampaigns || 0}</div>
             <div className="text-sm text-gray-400">Active Campaigns</div>
           </div>
 
@@ -114,7 +144,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = () => {
                 <MousePointer className="h-6 w-6 text-purple-400" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">{campaignStats.avgCTR.toFixed(1)}%</div>
+            <div className="text-2xl font-bold text-white mb-1">{campaignStats?.avgCtr ? (campaignStats.avgCtr * 100).toFixed(1) : 0}%</div>
             <div className="text-sm text-gray-400">Average CTR</div>
           </div>
 
@@ -124,7 +154,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = () => {
                 <TrendingUp className="h-6 w-6 text-orange-400" />
               </div>
             </div>
-            <div className="text-2xl font-bold text-white mb-1">{campaignStats.totalConversions}</div>
+            <div className="text-2xl font-bold text-white mb-1">{campaignStats?.totalConversions || 0}</div>
             <div className="text-sm text-gray-400">Total Conversions</div>
           </div>
         </div>
@@ -249,11 +279,11 @@ const CampaignsPage: React.FC<CampaignsPageProps> = () => {
             </div>
 
             {/* Variants */}
-            {campaign.variants.length > 1 && (
+            {campaign.variants && campaign.variants.length > 1 && (
               <div className="mb-4">
                 <div className="text-sm text-gray-400 mb-2">A/B Test Variants:</div>
                 <div className="space-y-2">
-                  {campaign.variants.map((variant, index) => (
+                  {(campaign.variants || []).map((variant: any, index: number) => (
                     <div key={variant.id} className="flex items-center justify-between p-2 bg-gray-700 rounded-lg">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
