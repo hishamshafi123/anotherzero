@@ -10,10 +10,10 @@ import ABTestDetailModal from '@/components/ABTestDetailModal';
 import CreateABTestModal from '@/components/modals/CreateABTestModal';
 
 interface ABTestsPageProps {
-  searchParams?: { [key: string]: string | string[] | undefined };
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-const ABTestsPage: React.FC<ABTestsPageProps> = ({ searchParams }) => {
+const ABTestsPage: React.FC<ABTestsPageProps> = () => {
   const [abTests, setAbTests] = useState<ABTest[]>(MOCK_AB_TESTS);
   const [statusFilter, setStatusFilter] = useState('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
