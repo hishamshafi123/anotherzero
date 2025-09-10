@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { TestTube, Trophy, TrendingUp, Users, MousePointer, Plus, BarChart, Eye, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { MOCK_AB_TESTS } from '@/lib/supabase-queries';
 
@@ -16,6 +17,7 @@ const STATUS_ICONS = {
 };
 
 export default function ABTestsPage() {
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState('all');
   
   const filteredTests = MOCK_AB_TESTS.filter(test => 
@@ -55,7 +57,10 @@ export default function ABTestsPage() {
           <h1 className="text-2xl font-semibold text-white">A/B Tests</h1>
           <p className="text-gray-400 mt-1">Create and analyze A/B tests for your campaigns</p>
         </div>
-        <button className="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 py-2 text-sm hover:bg-blue-700 transition">
+        <button 
+          onClick={() => router.push('/new-campaign')}
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 py-2 text-sm hover:bg-blue-700 transition"
+        >
           <Plus size={16} /> New A/B Test
         </button>
       </div>

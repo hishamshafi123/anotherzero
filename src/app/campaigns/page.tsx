@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Play, Pause, BarChart3, Users, MousePointer, Plus, Calendar, Filter, CheckCircle, X } from 'lucide-react';
 import { getCampaigns, getCampaignStats, type Campaign } from '@/lib/supabase-queries';
 
@@ -20,6 +20,7 @@ const CHANNEL_COLORS = {
 
 export default function CampaignsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState('all');
   const [channelFilter, setChannelFilter] = useState('all');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -123,7 +124,10 @@ export default function CampaignsPage() {
           <h1 className="text-2xl font-semibold text-white">Campaigns</h1>
           <p className="text-gray-400 mt-1">Manage your Instagram and Facebook campaigns</p>
         </div>
-        <button className="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 py-2 text-sm hover:bg-blue-700 transition">
+        <button 
+          onClick={() => router.push('/new-campaign')}
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 py-2 text-sm hover:bg-blue-700 transition"
+        >
           <Plus size={16} /> New Campaign
         </button>
       </div>
