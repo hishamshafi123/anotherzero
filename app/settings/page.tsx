@@ -10,7 +10,7 @@ interface SettingsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ searchParams }) => {
+const SettingsPage: React.FC<SettingsPageProps> = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 

@@ -4,10 +4,10 @@ import { Facebook, Users, MessageCircle, ThumbsUp, TrendingUp, Clock, BarChart3,
 import { MOCK_CONTACTS, MOCK_CAMPAIGNS, getChannelStats, type Contact, type Campaign } from '@/lib/mock-data';
 
 interface FacebookPageProps {
-  searchParams?: { [key: string]: string | string[] | undefined };
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-const FacebookPage: React.FC<FacebookPageProps> = ({ searchParams }) => {
+const FacebookPage: React.FC<FacebookPageProps> = () => {
   const [timeRange, setTimeRange] = useState('30d');
   
   const facebookStats = getChannelStats('facebook');

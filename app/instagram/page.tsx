@@ -4,10 +4,10 @@ import { Instagram, Users, MessageCircle, Heart, TrendingUp, Clock, Tag, Activit
 import { MOCK_CONTACTS, MOCK_CAMPAIGNS, getChannelStats, type Contact, type Campaign } from '@/lib/mock-data';
 
 interface InstagramPageProps {
-  searchParams?: { [key: string]: string | string[] | undefined };
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-const InstagramPage: React.FC<InstagramPageProps> = ({ searchParams }) => {
+const InstagramPage: React.FC<InstagramPageProps> = () => {
   const [timeRange, setTimeRange] = useState('30d');
   
   const instagramStats = getChannelStats('instagram');
