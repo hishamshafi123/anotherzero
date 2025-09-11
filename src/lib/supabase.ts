@@ -176,4 +176,3 @@ export type Database = {
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
-export type { Database }

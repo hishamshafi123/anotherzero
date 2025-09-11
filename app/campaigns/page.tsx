@@ -98,7 +98,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = () => {
 
   const calculateProgress = (campaign: Campaign) => {
     if (campaign.audience_size === 0) return 0;
-    return Math.round((campaign.sent / campaign.audience_size) * 100);
+    return Math.round(((campaign.sent ?? 0) / campaign.audience_size) * 100);
   };
 
   return (
@@ -261,11 +261,11 @@ const CampaignsPage: React.FC<CampaignsPageProps> = () => {
             {/* Metrics */}
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="text-center">
-                <div className="text-xl font-bold text-white">{campaign.sent.toLocaleString()}</div>
+                <div className="text-xl font-bold text-white">{(campaign.sent ?? 0).toLocaleString()}</div>
                 <div className="text-xs text-gray-400">Sent</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold text-green-400">{campaign.clicks.toLocaleString()}</div>
+                <div className="text-xl font-bold text-green-400">{(campaign.clicks ?? 0).toLocaleString()}</div>
                 <div className="text-xs text-gray-400">Clicks</div>
               </div>
               <div className="text-center">
