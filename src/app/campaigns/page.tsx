@@ -269,7 +269,7 @@ export default function CampaignsPage() {
                 <span className="text-sm text-gray-300">{formatDate(campaign.created_at)}</span>
               </div>
               
-              {campaign.status === 'scheduled' && (
+              {campaign.status === 'scheduled' && campaign.schedule_start_at && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-400">Starts</span>
                   <span className="text-sm text-blue-400">{formatDate(campaign.schedule_start_at)}</span>

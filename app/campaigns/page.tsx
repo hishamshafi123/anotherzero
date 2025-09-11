@@ -278,35 +278,22 @@ const CampaignsPage: React.FC<CampaignsPageProps> = () => {
               </div>
             </div>
 
-            {/* Variants */}
-            {campaign.variants && campaign.variants.length > 1 && (
-              <div className="mb-4">
-                <div className="text-sm text-gray-400 mb-2">A/B Test Variants:</div>
-                <div className="space-y-2">
-                  {(campaign.variants || []).map((variant: any, index: number) => (
-                    <div key={variant.id} className="flex items-center justify-between p-2 bg-gray-700 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                        <span className="text-sm text-gray-300">{variant.name}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-gray-400">{variant.weight}%</span>
-                        <span className="text-xs text-blue-400 font-medium">{variant.ctr}% CTR</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Campaign Details */}
+            <div className="mb-4">
+              <div className="text-sm text-gray-400 mb-2">Campaign Target:</div>
+              <div className="text-sm text-gray-300 capitalize">{campaign.interest_filter || 'All contacts'}</div>
+            </div>
 
             {/* Footer */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-700">
               <div className="flex items-center gap-2 text-xs text-gray-400">
                 <Calendar size={12} />
-                {campaign.status === 'scheduled' ? `Starts ${formatDate(campaign.schedule_start_at)}` : formatDate(campaign.created_at)}
+                {campaign.status === 'scheduled' && campaign.schedule_start_at 
+                  ? `Starts ${formatDate(campaign.schedule_start_at)}` 
+                  : formatDate(campaign.created_at)}
               </div>
               <div className="text-xs text-gray-400">
-                by {campaign.created_by}
+                by {campaign.created_by || 'Unknown'}
               </div>
             </div>
 

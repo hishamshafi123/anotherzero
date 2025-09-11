@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import * as mockData from '@/data/mockData'
+import type { CampaignVariant } from '@/types'
 
 export type Contact = {
   id: string
@@ -33,6 +34,7 @@ export type Campaign = {
   clicks: number
   ctr: number
   conversions: number
+  variants: CampaignVariant[]
   created_at: string
   created_by: string | null
   description?: string | null
@@ -128,7 +130,8 @@ export async function getCampaigns(): Promise<Campaign[]> {
       console.log('✅ Using REAL campaign data from Supabase:', data.length, 'campaigns')
       console.log('🔍 First campaign sample:', data[0])
       console.log('🔍 Campaign fields:', Object.keys(data[0] || {}))
-      return data
+      // Add empty variants array since database doesn't have variants table yet
+      return data.map((campaign: any) => ({ ...campaign, variants: [] }))
     } else {
       console.warn('📊 Supabase campaigns table is empty, using mock data')
       return generateMockCampaigns()

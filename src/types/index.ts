@@ -30,6 +30,7 @@ export interface Campaign {
   sent_count: number;
   click_count: number;
   ctr: number;
+  variants: CampaignVariant[];
   created_at: string;
   updated_at: string;
 }
