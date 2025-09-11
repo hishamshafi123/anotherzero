@@ -337,7 +337,7 @@ const Dashboard = () => {
                 <PieChart key="channel-pie-chart">
                   <Tooltip />
                   <Pie data={memoizedChannelSplit} dataKey="value" nameKey="name" outerRadius={90} animationDuration={0}>
-                    {memoizedChannelSplit.map((_, index: number) => (
+                    {memoizedChannelSplit.map((_: { name: string; value: number }, index: number) => (
                       <Cell key={`slice-${index}`} fill={index === 0 ? brandBlue : brandBlack} />
                     ))}
                   </Pie>
@@ -553,7 +553,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <ul className="divide-y divide-gray-700">
-              {recentContacts.map((c, i) => (
+              {recentContacts.map((c: any, i: number) => (
                 <li key={i} className="py-3 flex items-center justify-between">
                   <div>
                     <div className="font-medium text-white">{c.name} <span className="text-gray-400 font-normal">{c.handle}</span></div>
