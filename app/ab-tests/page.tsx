@@ -135,17 +135,33 @@ const ABTestsPage: React.FC<ABTestsPageProps> = () => {
     }));
   };
 
-  const handleCreateTest = (testData: any) => {
+  interface CreateTestData {
+    name: string;
+    description: string;
+    sendImmediately: boolean;
+    campaignId?: string;
+    startDate: string;
+    endDate?: string;
+    confidenceLevel: number;
+    variants: Array<{
+      id: string;
+      name: string;
+      message: string;
+    }>;
+  }
+
+  const handleCreateTest = (testData: CreateTestData) => {
     const newTest: ABTest = {
       id: `test_${Date.now()}`,
       name: testData.name,
       description: testData.description,
       status: testData.sendImmediately ? 'running' : 'paused',
+      campaign_id: testData.campaignId || '1',
       start_date: testData.startDate,
       end_date: testData.endDate,
       confidence_level: testData.confidenceLevel,
-      winner: null,
-      variants: testData.variants.map((variant: any, index: number) => ({
+      winner: undefined,
+      variants: testData.variants.map((variant) => ({
         id: variant.id,
         name: variant.name,
         message: variant.message,
