@@ -448,15 +448,16 @@ export const MOCK_AB_TESTS = [
   {
     id: '1',
     name: 'DM CTA length',
-    status: 'running' as const,
+    status: 'completed' as const,
     campaign_id: '1',
     variants: [
       { id: '1a', name: 'Short CTA', message: 'Quick message', sent: 1000, clicks: 420, ctr: 0.42, conversions: 50, conversion_rate: 0.05 },
       { id: '1b', name: 'Long CTA', message: 'Longer message', sent: 1000, clicks: 490, ctr: 0.49, conversions: 65, conversion_rate: 0.065 }
     ],
     start_date: '2024-01-01',
+    end_date: '2024-01-15',
     confidence_level: 95,
-    winner: 'B',
+    winner: '1b',
     description: 'Testing CTA length effectiveness'
   },
   {
@@ -471,5 +472,18 @@ export const MOCK_AB_TESTS = [
     start_date: '2024-01-15',
     confidence_level: 82,
     description: 'Testing personalization impact'
+  },
+  {
+    id: '3',
+    name: 'Emoji usage test',
+    status: 'paused' as const,
+    campaign_id: '3',
+    variants: [
+      { id: '3a', name: 'With Emojis', message: 'Hey! 👋 Check this out!', sent: 600, clicks: 180, ctr: 0.30, conversions: 15, conversion_rate: 0.025 },
+      { id: '3b', name: 'Without Emojis', message: 'Hey! Check this out!', sent: 600, clicks: 150, ctr: 0.25, conversions: 12, conversion_rate: 0.020 }
+    ],
+    start_date: '2024-01-20',
+    confidence_level: 68,
+    description: 'Testing emoji impact on engagement'
   }
 ]
