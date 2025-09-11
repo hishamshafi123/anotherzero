@@ -27,22 +27,16 @@ export type Campaign = {
   name: string
   channel: 'instagram' | 'facebook' | 'both'
   status: 'draft' | 'scheduled' | 'running' | 'paused' | 'completed'
-  schedule_start_at: string
+  schedule_start_at: string | null
   audience_size: number
   sent: number
   clicks: number
   ctr: number
   conversions: number
-  variants: Array<{
-    id: string
-    name: string
-    weight: number
-    ctr: number
-  }>
   created_at: string
-  created_by: string
-  description?: string
-  updated_at: string
+  created_by: string | null
+  description?: string | null
+  interest_filter?: string
 }
 
 export type Event = {
