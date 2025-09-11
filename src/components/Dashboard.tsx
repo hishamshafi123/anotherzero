@@ -308,7 +308,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {memoizedCampaignCTr.map((campaign, i) => (
+                {memoizedCampaignCTr.map((campaign: { name: string; ctr: number }, i: number) => (
                   <div key={i} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0">
                     <div className="flex-1">
                       <div className="font-medium text-white">{campaign.name}</div>
