@@ -288,11 +288,9 @@ const ContactsPage: React.FC<ContactsPageProps> = ({ searchParams }) => {
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      <img 
-                        src={contact.avatar_url} 
-                        alt={contact.name}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
+                      <span className="text-white text-sm font-mono">
+                        {contact.user_id || contact.id || 'ID'}
+                      </span>
                       <div>
                         <div className="font-medium text-white">{contact.name}</div>
                         <div className="text-sm text-gray-400">{contact.handle}</div>

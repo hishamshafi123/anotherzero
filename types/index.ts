@@ -8,6 +8,7 @@ export type EventType = 'contact_created' | 'interest_detected' | 'campaign_sent
 // Core Contact interface - simplified for interest detection
 export interface Contact {
   id: string;
+  user_id: string;
   source: Channel;
   external_id: string;
   handle: string;

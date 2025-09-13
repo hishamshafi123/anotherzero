@@ -1,5 +1,5 @@
 import React from 'react';
-import { Contact } from '@/types';
+import { type Contact } from '@/lib/supabase-queries';
 import Card from './Card';
 import CardHeader from './CardHeader';
 import CardTitle from './CardTitle';
@@ -37,13 +37,11 @@ const ContactList: React.FC<ContactListProps> = ({ contacts, onContactClick }) =
               onClick={() => onContactClick?.(contact)}
             >
               <div className="flex items-center gap-3">
-                {contact.avatar_url && (
-                  <img
-                    src={contact.avatar_url}
-                    alt={contact.name || contact.handle}
-                    className="w-10 h-10 rounded-full"
-                  />
-                )}
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
+                  <span className="text-blue-400 text-xs font-mono">
+                    {contact.user_id || contact.id || 'N/A'}
+                  </span>
+                </div>
                 <div>
                   <div className="font-medium">
                     {contact.name || contact.handle}
