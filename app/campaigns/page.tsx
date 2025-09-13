@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Play, Pause, Copy, Archive, BarChart3, MousePointer, TrendingUp, Calendar, Filter } from 'lucide-react';
-import { getCampaigns, getCampaignStats, type Campaign } from '@/lib/supabase-queries';
+import { getCampaigns, getCampaignStats, type Campaign } from '../../lib/supabase-queries';
 
 interface CampaignsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -16,15 +16,22 @@ const CampaignsPage: React.FC<CampaignsPageProps> = () => {
   useEffect(() => {
     async function loadData() {
       try {
+        console.log('🚀 CampaignsPage - Starting to load data...');
         const [campaignsData, statsData] = await Promise.all([
           getCampaigns(),
           getCampaignStats()
         ]);
+        console.log('✅ CampaignsPage - Data loaded:', {
+          campaignsCount: campaignsData.length,
+          campaigns: campaignsData,
+          stats: statsData
+        });
         setCampaigns(campaignsData);
         setCampaignStats(statsData);
       } catch (error) {
-        console.error('Error loading campaigns:', error);
+        console.error('❌ CampaignsPage - Error loading campaigns:', error);
       } finally {
+        console.log('✅ CampaignsPage - Loading finished');
         setLoading(false);
       }
     }

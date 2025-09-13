@@ -124,7 +124,7 @@ const Dashboard = () => {
   const totalClicks = campaignStatsData?.totalClicks || 0;
   const ctrOverall = campaignStatsData?.avgCtr || 0;
   const activeCampaigns = campaignStatsData?.activeCampaigns || 0;
-  
+ 
   // Real data from Supabase dashboard queries - MUST BE BEFORE CONDITIONAL RETURN
   const channelSplit = dashboardData?.channelSplit || [];
   const campaigns = dashboardData?.campaigns || [];
@@ -164,7 +164,7 @@ const Dashboard = () => {
   }
   
   const brandBlue = '#3b82f6';
-  const brandBlack = '#1f2937';
+  const brandPink = '#d62976';
 
   // Button handlers
   const handleExport = () => {
@@ -338,14 +338,14 @@ const Dashboard = () => {
                   <Tooltip />
                   <Pie data={memoizedChannelSplit} dataKey="value" nameKey="name" outerRadius={90} animationDuration={0}>
                     {memoizedChannelSplit.map((_: { name: string; value: number }, index: number) => (
-                      <Cell key={`slice-${index}`} fill={index === 0 ? brandBlue : brandBlack} />
+                      <Cell key={`slice-${index}`} fill={index === 0 ? brandPink : brandBlue} />
                     ))}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="mt-3 flex items-center justify-center gap-3 text-sm">
-                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: brandBlue }} /> Instagram</span>
-                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: brandBlack }} /> Facebook</span>
+              <div className="mt-0 flex items-center justify-center gap-3 text-sm">
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: brandPink }} /> Instagram</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: brandBlue }} /> Facebook</span>
               </div>
             </CardContent>
           </Card>
