@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Clock, Play, Pause, Edit, Trash2, Plus, Users, 
   BarChart3, ChevronRight, TrendingUp, TrendingDown, Filter, 
@@ -8,6 +8,7 @@ import {
   PauseCircle, PlayCircle
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { getFollowupSequences, getCurrentExecutions, getFollowupStats, type FollowupSequence, type FollowupExecution } from '../../src/lib/followup-queries';
 
 // Enhanced interfaces for comprehensive follow-up management
 interface FollowUpSequence {
@@ -52,140 +53,7 @@ interface PerformanceData {
   facebook: number;
 }
 
-// Mock data for realistic fitness/supplement industry scenarios
-const mockSequences: FollowUpSequence[] = [
-  {
-    id: '1',
-    name: 'New Interest Nurture',
-    description: 'Welcome → Success stories → Limited offer for newly interested prospects',
-    trigger: 'interest_detected',
-    status: 'active',
-    steps: 3,
-    totalTriggered: 284,
-    inProgress: 67,
-    completed: 193,
-    conversionRate: 19.2,
-    performance: 'high',
-    lastModified: '2 hours ago',
-    createdBy: 'Sarah M.',
-    channels: ['instagram', 'facebook']
-  },
-  {
-    id: '2',
-    name: 'Campaign Non-Responders',
-    description: 'Different angle approach → Final value add for non-responsive contacts',
-    trigger: 'no_response',
-    status: 'active',
-    steps: 2,
-    totalTriggered: 156,
-    inProgress: 43,
-    completed: 89,
-    conversionRate: 12.8,
-    performance: 'medium',
-    lastModified: '1 day ago',
-    createdBy: 'Mike R.',
-    channels: ['instagram']
-  },
-  {
-    id: '3',
-    name: 'High-Value Re-engagement',
-    description: 'Check-in → Educational content → Case study → Special offer',
-    trigger: 'tag_added',
-    status: 'paused',
-    steps: 4,
-    totalTriggered: 78,
-    inProgress: 12,
-    completed: 45,
-    conversionRate: 15.4,
-    performance: 'medium',
-    lastModified: '3 days ago',
-    createdBy: 'Lisa K.',
-    channels: ['facebook']
-  },
-  {
-    id: '4',
-    name: 'Post-Click Nurture',
-    description: 'Thanks + FAQ → Social proof → Urgency offer for link clickers',
-    trigger: 'campaign_clicked',
-    status: 'draft',
-    steps: 3,
-    totalTriggered: 0,
-    inProgress: 0,
-    completed: 0,
-    conversionRate: 0,
-    performance: 'low',
-    lastModified: '5 days ago',
-    createdBy: 'Tom H.',
-    channels: ['instagram', 'facebook']
-  }
-];
-
-const mockExecutions: CurrentExecution[] = [
-  {
-    id: '1',
-    contactId: 'c1',
-    contactName: 'Jessica Chen',
-    contactHandle: '@jessica_fitness',
-    contactAvatar: '/api/placeholder/32/32',
-    source: 'instagram',
-    sequenceId: '1',
-    sequenceName: 'New Interest Nurture',
-    currentStep: 2,
-    totalSteps: 3,
-    nextActionTime: 'in 4 hours',
-    engagementScore: 85,
-    progress: 67,
-    status: 'active'
-  },
-  {
-    id: '2',
-    contactId: 'c2',
-    contactName: 'Marcus Johnson',
-    contactHandle: '@marcus_gains',
-    contactAvatar: '/api/placeholder/32/32',
-    source: 'facebook',
-    sequenceId: '2',
-    sequenceName: 'Campaign Non-Responders',
-    currentStep: 1,
-    totalSteps: 2,
-    nextActionTime: 'in 1 day',
-    engagementScore: 62,
-    progress: 50,
-    status: 'active'
-  },
-  {
-    id: '3',
-    contactId: 'c3',
-    contactName: 'Sophie Williams',
-    contactHandle: '@sophie_strong',
-    contactAvatar: '/api/placeholder/32/32',
-    source: 'instagram',
-    sequenceId: '1',
-    sequenceName: 'New Interest Nurture',
-    currentStep: 1,
-    totalSteps: 3,
-    nextActionTime: 'in 2 hours',
-    engagementScore: 94,
-    progress: 33,
-    status: 'active'
-  },
-  {
-    id: '4',
-    contactId: 'c4',
-    contactName: 'David Rodriguez',
-    contactHandle: '@david_bulk',
-    contactAvatar: '/api/placeholder/32/32',
-    source: 'facebook',
-    sequenceId: '3',
-    sequenceName: 'High-Value Re-engagement',
-    currentStep: 3,
-    totalSteps: 4,
-    nextActionTime: 'Paused',
-    engagementScore: 58,
-    progress: 75,
-    status: 'paused'
-  }
-];
+// Mock data removed - now using real Supabase data
 
 const performanceData: PerformanceData[] = [
   { date: 'Jan 1', triggered: 12, completed: 8, instagram: 7, facebook: 5 },
@@ -207,30 +75,59 @@ interface FollowUpsPageProps {
 }
 
 const FollowUpsPage: React.FC<FollowUpsPageProps> = () => {
-  const [sequences, setSequences] = useState<FollowUpSequence[]>(mockSequences);
-  const [executions] = useState<CurrentExecution[]>(mockExecutions);
+  const [sequences, setSequences] = useState<FollowupSequence[]>([]);
+  const [executions, setExecutions] = useState<FollowupExecution[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [performanceFilter, setPerformanceFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Calculate overview statistics
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [sequencesData, executionsData, statsData] = await Promise.all([
+          getFollowupSequences(),
+          getCurrentExecutions(),
+          getFollowupStats()
+        ]);
+        
+        setSequences(sequencesData);
+        setExecutions(executionsData);
+        setStats(statsData);
+      } catch (error) {
+        console.error('Error loading follow-up data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadData();
+  }, []);
+
+  // Use stats from Supabase or calculate fallback
   const overviewStats = useMemo(() => {
+    if (stats) {
+      return stats;
+    }
+    
+    // Fallback calculation if stats not loaded
     const activeSequences = sequences.filter(s => s.status === 'active').length;
-    const totalInProgress = sequences.reduce((sum, s) => sum + s.inProgress, 0);
+    const totalInProgress = sequences.reduce((sum, s) => sum + s.in_progress, 0);
     const totalCompleted = sequences.reduce((sum, s) => sum + s.completed, 0);
-    const totalTriggered = sequences.reduce((sum, s) => sum + s.totalTriggered, 0);
+    const totalTriggered = sequences.reduce((sum, s) => sum + s.total_triggered, 0);
     const averageCompletion = totalTriggered > 0 ? (totalCompleted / totalTriggered * 100) : 0;
     const bestSequence = sequences.reduce((best, current) => 
-      current.conversionRate > best.conversionRate ? current : best, sequences[0]);
+      current.conversion_rate > best.conversion_rate ? current : best, sequences[0]);
 
     return {
       activeSequences,
       contactsInFollowups: totalInProgress,
       averageCompletion: averageCompletion.toFixed(1),
       bestPerforming: bestSequence?.name || 'N/A',
-      bestPerformingRate: bestSequence?.conversionRate.toFixed(1) || '0'
+      bestPerformingRate: bestSequence?.conversion_rate?.toFixed(1) || '0'
     };
-  }, [sequences]);
+  }, [stats, sequences]);
 
   // Filter sequences based on search and filters
   const filteredSequences = useMemo(() => {
@@ -287,6 +184,17 @@ const FollowUpsPage: React.FC<FollowUpsPageProps> = () => {
       default: return <TrendingUp size={14} />;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading follow-up sequences...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
